@@ -29,7 +29,7 @@ h1,h2,h3,.disp{font-family:"Archivo",system-ui,sans-serif;letter-spacing:-.02em;
 
 .wrap{max-width:1180px;margin:0 auto;padding:0 16px 60px}
 header.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px 0 14px;border-bottom:1px solid var(--line);margin-bottom:20px}
-.brand{display:flex;align-items:baseline;gap:10px}
+.brand{display:flex;align-items:center;gap:10px;flex-wrap:wrap;row-gap:8px}
 .brand b{font-family:"Archivo";font-weight:800;font-size:20px;text-transform:uppercase;letter-spacing:.14em}
 .brand span{color:var(--dim);font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-family:"DM Mono"}
 .top .spacer{flex:1}
@@ -40,6 +40,8 @@ header.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px 
 .meter i:nth-child(4){height:14px}.meter i:nth-child(5){height:17px}
 .meter.on i{background:var(--signal)}
 .meter.on i:nth-child(5){animation:blip 1.6s ease-in-out infinite}
+.meter.on.q-good i{background:var(--ok)}
+.meter.on.q-bad i{background:var(--alert)}
 @keyframes blip{0%,100%{opacity:1}50%{opacity:.25}}
 .status{display:flex;align-items:center;gap:9px;font-family:"DM Mono";font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--fog)}
 
@@ -171,13 +173,15 @@ details.diag .readout{margin-top:2px}
 <div class="wrap">
 
 <header class="top">
-  <div class="brand"><b>Antena</b><span>ligação direta</span></div>
+  <div class="brand">
+    <b>Antena</b><span>ligação direta</span>
+    <button class="sm ghost hide" id="leaveBtn">Sair da sala</button>
+  </div>
   <div class="spacer"></div>
   <div class="status">
     <div class="meter" id="meter"><i></i><i></i><i></i><i></i><i></i></div>
     <span id="statusTxt">fora do ar</span>
   </div>
-  <button class="sm ghost hide" id="leaveBtn">Sair da sala</button>
 </header>
 
 <!-- ================= ENTRADA ================= -->
@@ -306,7 +310,7 @@ details.diag .readout{margin-top:2px}
 
   <footer>
     O vídeo, o chat e a fila viajam direto entre os navegadores — nenhum site nosso vê esses dados. Só a apresentação inicial passa pela nuvem pública do PeerJS, que sabe apenas que dois códigos existem, nunca o conteúdo. Se todo mundo fechar a aba, a sala deixa de existir.
-    <br><span style="opacity:.5">build v16</span>
+    <br><span style="opacity:.5">build v18</span>
   </footer>
 </section>
 
@@ -352,6 +356,7 @@ let playAttemptAt=0;       // quando pedimos play pela última vez
 let mountToken=0, mountRetries=0, appOpen=false;
 let unreadChat=0, toastT=null;
 let reconnecting=false, reconnectAttempts=0, reconnectTimer=null, hostReconnectAttempts=0, lastPongAt=0, pingLoopActive=false;
+let myRtt=null, lastHostPingAt=0;
 
 const rand=()=>Math.random().toString(36).slice(2,10);
 const now=()=>Date.now();
@@ -374,7 +379,20 @@ async function fetchTitle(vid){
 }
 
 /* ---------- interface geral ---------- */
-function setStatus(txt,live){ $('#statusTxt').textContent=txt; $('#meter').classList.toggle('on',!!live); }
+function setStatus(txt,live){
+  $('#statusTxt').textContent=txt;
+  $('#meter').classList.toggle('on',!!live);
+  if(!live) $('#meter').classList.remove('q-good','q-bad');
+}
+/* Verde/amarelo/vermelho a partir do tempo de ida-e-volta real medido pelo
+   ping/pong — não é só "conectado ou não", é "quão boa está a ligação". */
+function updateMeterQuality(){
+  const el=$('#meter');
+  el.classList.remove('q-good','q-bad');
+  if(!el.classList.contains('on')||myRtt==null) return;
+  if(myRtt<150) el.classList.add('q-good');
+  else if(myRtt>400) el.classList.add('q-bad');
+}
 function showToast(text){
   const el=$('#toast'); el.textContent=text; el.classList.add('show');
   clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),2600);
@@ -764,18 +782,20 @@ setInterval(()=>{
   checkBlocked();
   updatePlayerReadout();
   checkOverflowCulprit();
+  if(role==='host'&&appOpen){
+    if(now()-lastHostPingAt>3000){
+      lastHostPingAt=now();
+      peers.forEach(p=>{ if(p.on) send(p.conn,{t:'ping',t0:now()}); });
+    }
+    const rtts=[...peers.values()].filter(p=>p.on&&p.rtt!=null).map(p=>p.rtt);
+    myRtt=rtts.length?Math.max(...rtts):null;
+  }
+  updateMeterQuality();
   if(role==='guest'&&guestConn&&guestConn.open&&lastPongAt&&now()-lastPongAt>12000&&!reconnecting){
     console.log('[Antena] sem resposta do anfitrião há mais de 12s, forçando reconexão');
     try{ guestConn.close(); }catch(_){}
   }
-  if(role==='host'){
-    peers.forEach(p=>{
-      if(p.on&&p.lastSeen&&now()-p.lastSeen>25000){
-        console.log('[Antena] convidado sem responder, encerrando a ligação');
-        try{ p.conn.close(); }catch(_){}
-      }
-    });
-  }
+  if(role==='host') purgeStalePeers();
 },1500);
 
 const ESTADOS={'-1':'não iniciado',0:'terminou',1:'tocando',2:'pausado',3:'carregando',5:'pronto'};
@@ -848,8 +868,9 @@ function goFullscreen(){
 
 async function enterPip(){
   if(!pipOK||pipWin) return;
-  const at = playerReady&&videoId ? player.getCurrentTime() : 0;
-  const playing = playerReady && player.getPlayerState()===YT.PlayerState.PLAYING;
+  if(!playerReady||!videoId){ $('#appErr').textContent='Carregue um vídeo antes de abrir a janela flutuante.'; return; }
+  let iframe; try{ iframe=player.getIframe(); }catch(_){}
+  if(!iframe){ $('#appErr').textContent='Não achei o player pra flutuar. Tenta recarregar o player.'; return; }
   const w = await documentPictureInPicture.requestWindow({width:480,height:300});
   pipWin=w;
   [...document.styleSheets].forEach(ss=>{
@@ -874,17 +895,28 @@ async function enterPip(){
   }
   shell.appendChild(vid); shell.appendChild(bar); w.document.body.appendChild(shell);
 
-  mountPlayer(vid,{at,playing});
+  // Move o iframe que já está tocando, em vez de destruir e recriar um novo
+  // — recriar dentro da janela flutuante é o que disparava o erro 153 do
+  // YouTube (ele desconfia da configuração ao reabrir num documento novo).
+  // Mover preserva a reprodução e não recarrega, que é a proposta da API.
+  vid.appendChild(iframe);
+  const {w:pw,h:ph}=measureContainer(vid);
+  try{ player.setSize(pw,ph); }catch(_){}
+  watchContainerResize(vid);
+
   $('#emptyTxt').textContent='tocando na janela flutuante';
   $('#stageEmpty').classList.remove('hide');
   $('#btnBackFromPip').classList.remove('hide');
   $('#btnPip').textContent='Fechar janela flutuante';
 
   w.addEventListener('pagehide',()=>{
-    const bat = playerReady&&videoId ? player.getCurrentTime() : 0;
-    const bpl = playerReady && player.getPlayerState()===YT.PlayerState.PLAYING;
     pipWin=null;
-    mountPlayer($('#playerHolder'),{at:bat,playing:bpl});
+    const holder=$('#playerHolder');
+    holder.innerHTML='';
+    holder.appendChild(iframe);
+    const {w:mw,h:mh}=measureContainer(holder);
+    try{ player.setSize(mw,mh); }catch(_){}
+    watchContainerResize(holder);
     $('#emptyTxt').textContent = videoId?'':'nenhum vídeo carregado';
     $('#stageEmpty').classList.toggle('hide',!!videoId);
     $('#btnBackFromPip').classList.add('hide');
@@ -1010,6 +1042,22 @@ if(navigator.connection&&navigator.connection.addEventListener){
   });
 }
 
+/* Limpa convidados mudos há muito tempo e tentativas de ligação que travaram
+   antes de abrir — sem isso, cada reconexão deixava um fantasma permanente
+   em "aguardando" na lista de participantes. */
+function purgeStalePeers(){
+  peers.forEach((p,id)=>{
+    if(p.on&&p.lastSeen&&now()-p.lastSeen>25000){
+      console.log('[Antena] convidado sem responder, encerrando a ligação');
+      try{ p.conn.close(); }catch(_){}
+    }
+    if(!p.on&&p.createdAt&&now()-p.createdAt>15000){
+      console.log('[Antena] tentativa de ligação travada, descartando');
+      try{ p.conn.close(); }catch(_){}
+      peers.delete(id); updateLive(); pushRoster();
+    }
+  });
+}
 function wireHostChannel(id,conn){
   const p=peers.get(id); p.conn=conn;
   conn.on('open',()=>{
@@ -1024,14 +1072,15 @@ function wireHostChannel(id,conn){
     send(conn,testMsg);
     showToast('Conectado com sucesso!');
   });
-  conn.on('close',()=>{ p.on=false; updateLive(); pushRoster(); log((p.name||'Alguém')+' saiu'); });
-  conn.on('error',err=>{ p.on=false; updateLive(); console.log('[Antena] erro na ligação com convidado',err); });
+  conn.on('close',()=>{ const nome=p.name; peers.delete(id); updateLive(); pushRoster(); log((nome||'Alguém')+' saiu'); });
+  conn.on('error',err=>{ peers.delete(id); updateLive(); pushRoster(); console.log('[Antena] erro na ligação com convidado',err); });
   conn.on('data',m=>{
     if(!m||typeof m!=='object') return;
     p.lastSeen=now();
     const quem=p.name||'convidado';
     if(m.t==='handshake-test'){ console.log('[Antena] teste de handshake recebido do convidado:',m); return; }
     if(m.t==='ping'){ send(conn,{t:'pong',t0:m.t0,hts:now()}); return; }
+    if(m.t==='pong'){ p.rtt=now()-m.t0; return; }
     if(m.t==='hello'){ p.name=m.name; updateLive(); pushRoster(); return; }
     if(m.t==='chat'){ log(m.text,quem); broadcast({t:'chat',name:quem,text:m.text},id); return; }
     if(m.t==='q-add'){
@@ -1069,7 +1118,7 @@ function wireHostChannel(id,conn){
 }
 function wireGuestChannel(conn){
   const first=!guestConn;
-  guestConn=conn; offsetSamples=[]; clockOffset=0; lastPongAt=now();
+  guestConn=conn; offsetSamples=[]; clockOffset=0; lastPongAt=now(); myRtt=null;
   reconnecting=false; reconnectAttempts=0; hideConnBanner();
   send(conn,{t:'hello',name:myName});
   const testMsg={t:'handshake-test',from:myName,ts:now()};
@@ -1084,9 +1133,11 @@ function wireGuestChannel(conn){
   conn.on('data',m=>{
     if(!m||typeof m!=='object') return;
     if(m.t==='handshake-test'){ console.log('[Antena] teste de handshake recebido do anfitrião:',m); return; }
+    if(m.t==='ping'){ send(conn,{t:'pong',t0:m.t0,hts:now()}); return; }
     if(m.t==='pong'){
       lastPongAt=now();
       const t3=now(), off=((m.hts-m.t0)+(m.hts-t3))/2;
+      myRtt=t3-m.t0;
       offsetSamples.push(off); if(offsetSamples.length>7) offsetSamples.shift();
       const s=[...offsetSamples].sort((a,b)=>a-b); clockOffset=s[Math.floor(s.length/2)];
       return;
@@ -1145,7 +1196,7 @@ function createRoom(){
     });
     p.on('connection',conn=>{
       const id=conn.peer;
-      peers.set(id,{conn,name:null,on:false,lastSeen:now()});
+      peers.set(id,{conn,name:null,on:false,lastSeen:now(),createdAt:now()});
       wireHostChannel(id,conn);
     });
     p.on('disconnected',()=>{
@@ -1199,6 +1250,8 @@ function joinRoom(raw){
 function leaveRoom(){
   clearTimeout(reconnectTimer); reconnecting=false; reconnectAttempts=0; hostReconnectAttempts=0;
   hideConnBanner();
+  myRtt=null; lastHostPingAt=0;
+  $('#meter').classList.remove('q-good','q-bad');
   try{ playerResizeObserver&&playerResizeObserver.disconnect(); }catch(_){}
   playerResizeObserver=null;
   peers.forEach(p=>{ try{p.conn.close();}catch(_){} });
