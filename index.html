@@ -96,7 +96,6 @@ button.wide{width:100%;margin-top:12px}
 .empty{display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;text-align:center;color:var(--dim);font-family:"DM Mono";font-size:12px;letter-spacing:.1em;text-transform:uppercase;padding:20px;background:#000;pointer-events:none}
 .empty button{pointer-events:auto}
 #playerHolder iframe,#pipVideo iframe{position:absolute !important;inset:0 !important;width:100% !important;height:100% !important;max-width:100% !important;border:0;display:block}
-#pipVideo{position:relative}
 .warn{background:rgba(255,176,32,.08);border:1px solid var(--signal-dim);color:var(--signal);padding:10px 12px;border-radius:var(--r);font-size:13px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 #tapPlay{background:rgba(0,0,0,.82);color:var(--fog)}
 .bar{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
@@ -163,7 +162,7 @@ details.diag .readout{margin-top:2px}
 
 /* ---------- janela flutuante ---------- */
 #pipShell{display:flex;flex-direction:column;height:100vh;background:var(--ink)}
-#pipVideo{flex:1;min-height:0;background:#000}
+#pipVideo{flex:1;min-height:0;background:#000;position:relative}
 #pipBar{display:flex;align-items:center;gap:10px;padding:6px 9px;background:var(--panel);border-top:1px solid var(--line);font-family:"DM Mono";font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--fog)}
 #pipBar .spacer{flex:1}
 
@@ -252,9 +251,9 @@ details.diag .readout{margin-top:2px}
 
       <div class="bar" id="utilBar">
         <button class="ghost sm hide" id="btnNext">Pular para o próximo</button>
-        <button class="ghost sm" id="btnPip">Janela flutuante</button>
+        <button class="ghost sm hide" id="btnPip">Janela flutuante</button>
+        <button class="ghost sm" id="btnFullscreen">Tela cheia</button>
       </div>
-      <label class="sw"><input type="checkbox" id="autoPipChk"> Abrir a janela flutuante sozinha quando eu sair da aba</label>
       <p class="hint" id="pipHint"></p>
       <p class="err" id="appErr"></p>
 
@@ -319,7 +318,7 @@ details.diag .readout{margin-top:2px}
 
   <footer>
     O vídeo, o chat e a fila viajam direto entre os navegadores — nenhum site nosso vê esses dados. Só a apresentação inicial passa pela nuvem pública do PeerJS, que sabe apenas que dois códigos existem, nunca o conteúdo. Se todo mundo fechar a aba, a sala deixa de existir.
-    <br><span style="opacity:.5">build v20</span>
+    <br><span style="opacity:.5">build v22</span>
   </footer>
 </section>
 
@@ -366,10 +365,10 @@ let suppressUntil=0, lastSeen=0, lastSeenAt=0, drift=null;
 
 let queue=[];                          // [{id, vid, title, by}]
 let nowPlaying=null;                   // {vid, title, by}
-let pipWin=null, autoPip=false;
 let pendingLoad=null;      // pedido de vídeo feito antes do player existir
 let playAttemptAt=0;       // quando pedimos play pela última vez
 let mountToken=0, mountRetries=0, appOpen=false;
+let pipWin=null;
 let unreadChat=0, toastT=null;
 let reconnecting=false, reconnectAttempts=0, reconnectTimer=null, hostReconnectAttempts=0, lastPongAt=0, pingLoopActive=false;
 let myRtt=null, lastHostPingAt=0;
@@ -792,10 +791,6 @@ setInterval(()=>{
   const dTxt = role==='host'?'referência':(drift==null?'—':(drift>0?'+':'')+Math.round(drift*1000)+' ms');
   $('#roDrift').textContent=dTxt;
   $('#roClock').textContent = role==='host'?'—':(offsetSamples.length?(clockOffset>0?'+':'')+Math.round(clockOffset)+' ms':'medindo');
-  if(pipWin){
-    const el=pipWin.document.getElementById('pipDrift');
-    if(el) el.textContent = role==='host'?'anfitrião':dTxt;
-  }
   checkBlocked();
   updatePlayerReadout();
   checkOverflowCulprit();
@@ -863,16 +858,10 @@ $('#btnTap').addEventListener('click',()=>{
 /* ---------- janela flutuante ---------- */
 const pipOK = 'documentPictureInPicture' in window;
 const fsOK = !!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen);
+if(!fsOK) $('#btnFullscreen').disabled=true;
 if(pipOK){
-  $('#pipHint').textContent='Fica por cima das outras janelas.';
-}else if(fsOK){
-  $('#btnPip').textContent='Tela cheia';
-  $('#pipHint').textContent='No Android isso abre em tela cheia. Saia do app depois — o Chrome flutua o vídeo sozinho e a sincronia volta ao voltar.';
-  $('#autoPipChk').disabled=true;
-  $('#autoPipChk').parentNode.style.opacity='.45';
-}else{
-  $('#btnPip').disabled=true;
-  $('#pipHint').textContent='Sem suporte neste navegador.';
+  $('#btnPip').classList.remove('hide');
+  $('#pipHint').textContent='A janela flutuante fica por cima das outras — dá pra mexer em outro app enquanto assiste.';
 }
 
 function goFullscreen(){
@@ -882,12 +871,18 @@ function goFullscreen(){
   const req=fr.requestFullscreen||fr.webkitRequestFullscreen;
   if(req) try{ req.call(fr); }catch(err){ $('#appErr').textContent='A tela cheia foi recusada: '+err.message; }
 }
+$('#btnFullscreen').addEventListener('click',()=>{ $('#appErr').textContent=''; goFullscreen(); });
 
+/* Duas tentativas anteriores chamavam player.setSize() logo depois de mover
+   o iframe — tanto ao entrar quanto ao sair — e as duas quebraram de
+   formas diferentes bem nesse momento (Erro 153 numa, "Playback ID" na
+   outra). Desta vez o CSS (já com !important) cuida do tamanho sozinho;
+   não tocamos na API do player logo após o transplante do iframe. */
 async function enterPip(){
   if(!pipOK||pipWin) return;
   if(!playerReady||!videoId){ $('#appErr').textContent='Carregue um vídeo antes de abrir a janela flutuante.'; return; }
   let iframe; try{ iframe=player.getIframe(); }catch(_){}
-  if(!iframe){ $('#appErr').textContent='Não achei o player pra flutuar. Tenta recarregar o player.'; return; }
+  if(!iframe){ $('#appErr').textContent='Não achei o player pra flutuar.'; return; }
   const w = await documentPictureInPicture.requestWindow({width:480,height:300});
   pipWin=w;
   [...document.styleSheets].forEach(ss=>{
@@ -904,23 +899,14 @@ async function enterPip(){
   const bar=w.document.createElement('div'); bar.id='pipBar';
   const name=w.document.createElement('span'); name.textContent='Antena';
   const sp=w.document.createElement('span'); sp.className='spacer';
-  const dr=w.document.createElement('span'); dr.id='pipDrift'; dr.textContent='—';
-  bar.appendChild(name); bar.appendChild(sp); bar.appendChild(dr);
+  bar.appendChild(name); bar.appendChild(sp);
   if(canControl()){
     const nx=w.document.createElement('button'); nx.className='tiny'; nx.textContent='Próximo';
     nx.onclick=()=>reqNext(); bar.appendChild(nx);
   }
   shell.appendChild(vid); shell.appendChild(bar); w.document.body.appendChild(shell);
 
-  // Move o iframe que já está tocando, em vez de destruir e recriar um novo
-  // — recriar dentro da janela flutuante é o que disparava o erro 153 do
-  // YouTube (ele desconfia da configuração ao reabrir num documento novo).
-  // Mover preserva a reprodução e não recarrega, que é a proposta da API.
   vid.appendChild(iframe);
-  const {w:pw,h:ph}=measureContainer(vid);
-  try{ player.setSize(pw,ph); }catch(_){}
-  watchContainerResize(vid);
-
   $('#emptyTxt').textContent='tocando na janela flutuante';
   $('#stageEmpty').classList.remove('hide');
   $('#btnBackFromPip').classList.remove('hide');
@@ -931,9 +917,6 @@ async function enterPip(){
     const holder=$('#playerHolder');
     holder.innerHTML='';
     holder.appendChild(iframe);
-    const {w:mw,h:mh}=measureContainer(holder);
-    try{ player.setSize(mw,mh); }catch(_){}
-    watchContainerResize(holder);
     $('#emptyTxt').textContent = videoId?'':'nenhum vídeo carregado';
     $('#stageEmpty').classList.toggle('hide',!!videoId);
     $('#btnBackFromPip').classList.add('hide');
@@ -941,18 +924,12 @@ async function enterPip(){
   });
 }
 function exitPip(){ if(pipWin) pipWin.close(); }
-
 $('#btnPip').addEventListener('click',()=>{
   $('#appErr').textContent='';
-  if(!pipOK) return goFullscreen();
   if(pipWin) exitPip();
   else enterPip().catch(err=>{$('#appErr').textContent='Não deu para abrir a janela flutuante: '+err.message;});
 });
 $('#btnBackFromPip').addEventListener('click',exitPip);
-$('#autoPipChk').addEventListener('change',e=>{
-  autoPip=e.target.checked;
-  if(autoPip&&!pipOK) $('#appErr').textContent='Este navegador não abre janela flutuante.';
-});
 
 document.addEventListener('visibilitychange',()=>{
   if(!document.hidden){
@@ -961,13 +938,7 @@ document.addEventListener('visibilitychange',()=>{
     if(role==='guest') setTimeout(()=>applySync(true),200);
     else if(role==='host'&&playerReady&&videoId) setTimeout(()=>pushState(player.getPlayerState()===YT.PlayerState.PLAYING),200);
   }
-  if(!autoPip||!pipOK) return;
-  if(document.hidden){ if(!pipWin&&videoId) enterPip().catch(()=>{}); }
-  else if(pipWin) exitPip();
 });
-/* O Chrome pede um gesto para abrir a janela; quando ele oferece o atalho de
-   mídia, usamos ele — é o caminho que funciona sem clique na hora. */
-try{ navigator.mediaSession.setActionHandler('enterpictureinpicture',()=>{ enterPip().catch(()=>{}); }); }catch(_){}
 
 /* ============================================================
    Rede: PeerJS. O anfitrião reivindica um id curto no broker
@@ -1336,8 +1307,9 @@ $('#btnPlayNow').addEventListener('click',()=>{
 $('#btnNext').addEventListener('click',reqNext);
 $('#btnReload').addEventListener('click',()=>{
   $('#appErr').textContent='';
+  if(pipWin){ try{ pipWin.close(); }catch(_){} }
   const at = role==='guest' ? (targetTime()||0) : (playerReady&&videoId?player.getCurrentTime():0);
-  mountPlayer(pipWin?pipWin.document.getElementById('pipVideo'):$('#playerHolder'),{at,playing:true});
+  mountPlayer($('#playerHolder'),{at,playing:true});
 });
 if(location.protocol==='file:'){
   $('#fileWarn').classList.remove('hide');
