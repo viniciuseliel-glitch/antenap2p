@@ -3,275 +3,462 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#08110F">
+<meta name="theme-color" content="#0A246A">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<title>Ponte — envie arquivos direto entre vocês</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=DM+Mono:wght@400;500&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+<title>Sala Compartilhada — Ponte</title>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1/dist/peerjs.min.js"></script>
 <style>
 :root{
-  --ink:#08110F; --panel:#0E1C1A; --panel-2:#132724; --line:#1E3833;
-  --fog:#8FA9A3; --dim:#4C6B65; --paper:#E9F2EF;
-  --signal:#FFB020; --signal-dim:#7A5613; --alert:#FF6B4A; --ok:#57D2A3; --r:4px;
+  --xp-blue-dk:#0A246A; --xp-blue-md:#296FCC; --xp-blue-lt:#5A93E8;
+  --xp-chrome-a:#F5F4EA; --xp-chrome-b:#DBD9C8; --xp-chrome-border:#8C8A7A;
+  --xp-pane-a:#E3EEFC; --xp-pane-b:#B7D0F5; --xp-pane-border:#7FA8DE;
+  --xp-link:#0B4FBF; --xp-link-visited:#5A2CA0;
+  --xp-list:#FFFFFF; --xp-list-alt:#F2F6FD;
+  --xp-select-a:#C7DBF7; --xp-select-b:#A9C6EE; --xp-select-border:#6E9EDB;
+  --xp-text:#000000; --xp-text-dim:#4E4E4E;
+  --xp-folder-a:#FFE28C; --xp-folder-b:#F3AE33; --xp-folder-line:#B8860B;
+  --xp-green:#0A8C0A; --xp-red:#C4001C; --xp-amber:#A6650C;
+  --xp-btn-a:#FEFEFE; --xp-btn-b:#E4E2D6; --xp-btn-border:#8C8A7A;
+  --r:2px;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;max-width:100%;overflow-x:hidden}
 body{
-  background:var(--ink); color:var(--paper);
-  font-family:"Inter Tight",system-ui,-apple-system,"Segoe UI",sans-serif;
-  font-size:15px; line-height:1.5; min-height:100vh;
-  background-image:repeating-linear-gradient(90deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px);
-  padding-bottom:env(safe-area-inset-bottom);
+  min-height:100vh;
+  background:
+    radial-gradient(ellipse at 30% -10%, #6FA8E0 0%, transparent 60%),
+    linear-gradient(180deg,#2E6DB4 0%,#5591D8 35%,#3E7BC4 100%);
+  font-family:Tahoma,"Segoe UI",Verdana,Arial,sans-serif;
+  font-size:12.5px; color:var(--xp-text); line-height:1.4;
+  padding:14px 10px 30px;
 }
-h1,h2,h3,.disp{font-family:"Archivo",system-ui,sans-serif;letter-spacing:-.02em;margin:0}
-.mono,code,textarea,input,.tag{font-family:"DM Mono",ui-monospace,Menlo,Consolas,monospace}
+h1,h2,h3{margin:0;font-weight:bold}
+button{font-family:inherit}
+input,textarea{font-family:inherit}
+a{color:var(--xp-link)}
+.hide{display:none !important}
 
-.wrap{max-width:1180px;margin:0 auto;padding:0 16px 60px}
-header.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px 0 14px;border-bottom:1px solid var(--line);margin-bottom:20px}
-.brand{display:flex;align-items:center;gap:10px;flex-wrap:wrap;row-gap:8px}
-.brand b{font-family:"Archivo";font-weight:800;font-size:20px;text-transform:uppercase;letter-spacing:.14em}
-.brand span{color:var(--dim);font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-family:"DM Mono"}
-.top .spacer{flex:1}
-@media (max-width:480px){
-  .brand span{display:none}
-  header.top{gap:10px}
-  .brand{gap:8px}
-  .brand b{font-size:17px}
-  #leaveBtn{padding:8px 10px}
-  .status{letter-spacing:.03em;gap:7px}
-}
+/* ---------- janela falsa ---------- */
+.winwrap{max-width:1180px;margin:0 auto}
+.win{background:var(--xp-chrome-a);border:1px solid #0A2E8C;border-radius:8px 8px 3px 3px;box-shadow:0 14px 34px rgba(0,10,40,.45), 0 1px 0 rgba(255,255,255,.5) inset;overflow:hidden}
+.titlebar{display:flex;align-items:center;gap:7px;padding:4px 5px 4px 8px;background:linear-gradient(180deg,#2C63D6 0%,#1445B8 45%,#0F3AA3 55%,#0B2E86 100%);color:#fff}
+.titlebar .ic{width:16px;height:16px;flex:none}
+.titlebar .txt{flex:1;font-size:12.5px;font-weight:bold;letter-spacing:.01em;text-shadow:0 1px 1px rgba(0,0,0,.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.capbtns{display:flex;gap:2px;flex:none}
+.capbtn{width:21px;height:20px;border:1px solid rgba(255,255,255,.5);border-radius:2px;background:linear-gradient(180deg,#6FA5F2,#2F63C8);color:#fff;font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.capbtn.close{background:linear-gradient(180deg,#F5A28C,#D6402A)}
+.capbtn:hover{filter:brightness(1.15)}
 
-.meter{display:flex;align-items:flex-end;gap:2px;height:16px}
-.meter i{width:3px;background:var(--dim);border-radius:1px;display:block}
-.meter i:nth-child(1){height:5px}.meter i:nth-child(2){height:8px}.meter i:nth-child(3){height:11px}
-.meter i:nth-child(4){height:14px}.meter i:nth-child(5){height:17px}
-.meter.on i{background:var(--signal)}
-.meter.on i:nth-child(5){animation:blip 1.6s ease-in-out infinite}
-.meter.on.q-good i{background:var(--ok)}
-.meter.on.q-bad i{background:var(--alert)}
-@keyframes blip{0%,100%{opacity:1}50%{opacity:.25}}
-.status{display:flex;align-items:center;gap:9px;font-family:"DM Mono";font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--fog)}
+.menubar{display:flex;gap:14px;padding:4px 10px;background:var(--xp-chrome-a);border-bottom:1px solid var(--xp-chrome-border);font-size:12px}
+.menubar span{cursor:default;padding:2px 4px;border-radius:2px}
+.menubar span:hover{background:var(--xp-select-a);outline:1px solid var(--xp-select-border)}
 
-/* ---------- setup ---------- */
-.setup{max-width:520px;margin:0 auto;padding-top:10px}
-.lede{font-size:30px;font-weight:800;line-height:1.06;text-transform:uppercase;letter-spacing:-.03em}
-.lede em{font-style:normal;color:var(--signal)}
-.sub{color:var(--fog);margin:12px 0 26px;max-width:52ch;font-size:14px}
-.field{display:block;margin-bottom:20px}
-.field label{display:block;font-family:"DM Mono";font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:7px}
-input[type=text],textarea{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--paper);padding:12px;border-radius:var(--r);font-size:16px;outline:none}
-input[type=text]:focus,textarea:focus{border-color:var(--signal);box-shadow:0 0 0 1px var(--signal-dim)}
-.row{display:flex;gap:10px;flex-wrap:wrap}
+.toolbar{display:flex;align-items:center;gap:3px;padding:5px 8px;background:linear-gradient(180deg,var(--xp-chrome-a),var(--xp-chrome-b));border-bottom:1px solid var(--xp-chrome-border);flex-wrap:wrap}
+.tbtn{display:flex;align-items:center;gap:5px;background:transparent;border:1px solid transparent;border-radius:3px;padding:4px 7px;font-size:11.5px;color:var(--xp-text);cursor:pointer;min-height:auto;text-transform:none;font-weight:normal;font-family:inherit;letter-spacing:0;white-space:nowrap}
+.tbtn:hover:not(:disabled){background:linear-gradient(180deg,#FFF7DE,#FFE9A8);border-color:#E8B23C}
+.tbtn:disabled{color:#9C9A8C;cursor:default;opacity:1}
+.tbtn.key{background:linear-gradient(180deg,#FFF7DE,#FFE9A8);border-color:#E8B23C;font-weight:bold}
+.tsep{width:1px;align-self:stretch;background:var(--xp-chrome-border);margin:2px 4px}
 
-button{font-family:"Archivo";font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase;background:var(--panel-2);color:var(--paper);border:1px solid var(--line);padding:12px 16px;border-radius:var(--r);cursor:pointer;transition:background .15s,border-color .15s,color .15s;min-height:46px;white-space:nowrap;flex-shrink:0}
-button:hover{border-color:var(--dim)}
-button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
-button.key{background:var(--signal);color:#1A1200;border-color:var(--signal)}
-button.key:hover{background:#FFC44D}
-button.ghost{background:transparent}
-button:disabled{opacity:.45;cursor:not-allowed}
-button.sm{padding:8px 12px;font-size:11px;min-height:38px}
-button.tiny,a.tiny{padding:6px 9px;font-size:10px;letter-spacing:.06em;min-height:30px;display:inline-flex;align-items:center;text-decoration:none}
-button.big{width:100%;padding:15px 16px;font-size:14px;min-height:52px}
-a.tiny{font-family:"Archivo";font-weight:600;text-transform:uppercase;border-radius:var(--r);border:1px solid var(--line)}
-a.tiny.key{background:var(--signal);color:#1A1200;border-color:var(--signal)}
+.addressbar{display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--xp-chrome-a);border-bottom:1px solid var(--xp-chrome-border);font-size:12px}
+.addressbar .lbl{color:var(--xp-text-dim);flex:none}
+.addrfield{flex:1;display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #7F9DB9;border-radius:2px;padding:3px 8px;min-width:0;box-shadow:inset 0 1px 2px rgba(0,0,0,.12)}
+.addrfield .ic{width:14px;height:14px;flex:none}
+.addrfield .path{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.addrfield .path b{color:var(--xp-blue-dk)}
+.addr-net{display:flex;align-items:center;gap:6px;flex:none;font-size:11px;color:var(--xp-text-dim)}
 
-.segTabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px;margin-bottom:16px}
-.segTab{flex:1;background:transparent;border:none;color:var(--dim);padding:12px 8px;font-size:12px;min-height:44px;border-radius:4px}
-.segTab.active{background:var(--panel-2);color:var(--signal)}
-.segPane p{color:var(--fog);font-size:13px;margin:0 0 14px;line-height:1.45}
+/* ---------- corpo ---------- */
+.winbody{background:#fff;min-height:60vh}
+.gridxp{display:grid;grid-template-columns:230px minmax(0,1fr);align-items:stretch}
+@media (max-width:820px){ .gridxp{grid-template-columns:1fr} }
 
-/* ---------- room ---------- */
-.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:22px;align-items:start}
+.sidebar{background:linear-gradient(180deg,#EAF1FD 0%,#D4E4FA 100%);border-right:1px solid var(--xp-pane-border);padding:8px 8px 16px}
+@media (max-width:820px){ .sidebar{border-right:none;border-bottom:1px solid var(--xp-pane-border)} }
+.tpanel{margin-bottom:10px;border-radius:4px;overflow:hidden;background:#fff;border:1px solid var(--xp-pane-border)}
+.tphead{background:linear-gradient(180deg,var(--xp-pane-a),var(--xp-pane-b));padding:5px 8px;font-size:11px;font-weight:bold;color:var(--xp-blue-dk);border-bottom:1px solid var(--xp-pane-border);display:flex;align-items:center;gap:6px}
+.tpbody{padding:8px}
+.tasklink{display:flex;align-items:center;gap:7px;padding:5px 2px;color:var(--xp-link);cursor:pointer;font-size:12px;border-radius:3px}
+.tasklink:hover{text-decoration:underline;background:var(--xp-select-a)}
+.tasklink .ic{width:16px;height:16px;flex:none}
+.tasklink[disabled],.tasklink.disabled{color:#9C9A8C;cursor:default;pointer-events:none}
 
-.drop{background:var(--panel);border:2px dashed var(--line);border-radius:8px;padding:40px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
-.drop:hover,.drop.over{border-color:var(--signal);background:rgba(255,176,32,.05)}
-.drop b{display:block;font-family:"Archivo";font-size:16px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
-.drop span{color:var(--dim);font-size:12.5px}
-.drop input{display:none}
-
-.warn{background:rgba(255,176,32,.08);border:1px solid var(--signal-dim);color:var(--signal);padding:10px 12px;border-radius:var(--r);font-size:13px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-
-.codeChip{display:flex;align-items:center;gap:8px;margin-top:12px;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);font-family:"DM Mono";font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
-.codeChip b{color:var(--signal);font-size:14px;letter-spacing:.22em}
-
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:15px;margin-bottom:16px}
-.panel h3{font-size:11px;font-family:"DM Mono";letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:400}
-.hint{color:var(--dim);font-size:12.5px;line-height:1.45;margin:8px 0 0}
-.err{color:var(--alert);font-size:12.5px;margin-top:8px;min-height:1em}
-
-.codeboxes{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin:4px 0 14px}
-.codeboxes .digit{aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--line);border-radius:var(--r);font-family:"DM Mono";font-size:22px;font-weight:500;color:var(--signal)}
+.codebar{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;background:#fff;border:1px solid #B0B0B0;border-radius:2px;padding:6px 8px;margin-bottom:8px}
+.codebar b{font-family:"Courier New",monospace;font-size:16px;letter-spacing:.14em;color:var(--xp-blue-dk)}
+.codebar span{font-size:10.5px;color:var(--xp-text-dim)}
 
 ul.peers{list-style:none;margin:0;padding:0}
-ul.peers li{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+ul.peers li{display:flex;align-items:center;gap:7px;padding:4px 2px;font-size:12px;border-bottom:1px solid #EEE}
 ul.peers li:last-child{border-bottom:none}
-.dot{width:7px;height:7px;border-radius:50%;background:var(--dim);flex:none}
-.dot.on{background:var(--ok)}
-.dot.wait{background:var(--signal)}
-.tag{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-left:auto}
+ul.peers .netic{width:16px;height:14px;flex:none;position:relative}
+ul.peers .netic svg{width:100%;height:100%}
+ul.peers .netic i{position:absolute;right:-2px;bottom:-2px;width:6px;height:6px;border-radius:50%;background:#9C9A8C;border:1px solid #fff}
+ul.peers .netic i.on{background:var(--xp-green)}
+ul.peers .netic i.wait{background:var(--xp-amber)}
+ul.peers .tag{margin-left:auto;font-size:9.5px;color:var(--xp-text-dim);text-transform:uppercase}
 
-/* file list */
-.fitem{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);align-items:center}
+#chatlog{height:150px;overflow-y:auto;background:#fff;border:1px inset #B0B0B0;padding:5px;font-size:11.5px;margin-bottom:6px}
+.msg{margin-bottom:3px}
+.msg b{color:var(--xp-blue-dk);margin-right:4px}
+.msg.sys{color:var(--xp-text-dim);font-style:italic}
+
+.err{color:var(--xp-red);font-size:11.5px;margin:6px 0;min-height:1em}
+.warn{background:#FFF6D9;border:1px solid #E8C766;color:#7A5A00;padding:7px 10px;border-radius:2px;font-size:12px;margin:10px 10px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+/* ---------- área principal ---------- */
+.main{padding:12px 14px 16px;min-width:0}
+.dropzone{border:1px dashed #9CB4D8;border-radius:4px;background:#F7FAFF;padding:22px 16px;text-align:center;cursor:pointer;margin-bottom:14px;transition:background .12s,border-color .12s}
+.dropzone:hover,.dropzone.over{background:#EAF1FF;border-color:var(--xp-blue-md)}
+.dropzone .bigic{width:38px;height:38px;margin:0 auto 6px}
+.dropzone b{display:block;font-size:12.5px;color:var(--xp-blue-dk)}
+.dropzone span{font-size:11px;color:var(--xp-text-dim)}
+.dropzone input{display:none}
+
+.sectionhead{display:flex;align-items:center;gap:8px;padding:4px 2px;margin-bottom:4px;border-bottom:1px solid #D8E3F5}
+.sectionhead b{font-size:12px;color:var(--xp-blue-dk)}
+.sectionhead .cnt{margin-left:auto;font-size:11px;color:var(--xp-text-dim)}
+.countbadge{background:var(--xp-red);color:#fff;font-size:9.5px;font-weight:bold;border-radius:8px;padding:1px 6px;line-height:1.4}
+.countbadge:empty{display:none}
+
+.filelist-wrap{border:1px solid #A0A0A0;background:#fff}
+.filelist-head{display:grid;grid-template-columns:44px minmax(0,1fr) 150px;gap:8px;background:linear-gradient(180deg,var(--xp-chrome-a),var(--xp-chrome-b));border-bottom:1px solid var(--xp-chrome-border);font-size:11px;font-weight:bold;color:var(--xp-text-dim)}
+.filelist-head span{padding:5px 8px;border-right:1px solid #D2D0C4}
+.filelist-head span:last-child{border-right:none}
+.filelist-head span:first-child{border-right:none}
+@media (max-width:560px){ .filelist-head{display:none} }
+
+/* .fitem/.fthumb/.finfo/.facts/.fname/.fmeta/.fbar*/.ftag/.fdir são os
+   nomes reais que o motor de arquivos usa — a casca visual XP se encaixa
+   neles em vez de inventar uma estrutura nova. */
+.fitem{display:grid;grid-template-columns:44px minmax(0,1fr) 150px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #EEF1F8}
+.fitem:hover{background:var(--xp-list-alt)}
 .fitem:last-child{border-bottom:none}
-.fthumb{width:44px;height:44px;border-radius:6px;background:var(--panel-2);display:flex;align-items:center;justify-content:center;flex:none;font-family:"DM Mono";font-size:10px;color:var(--dim);text-transform:uppercase;overflow:hidden}
-.fthumb img{width:100%;height:100%;object-fit:cover}
-.finfo{flex:1;min-width:0}
-.fname{display:block;font-size:13px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;overflow-wrap:break-word}
-.fmeta{display:block;font-family:"DM Mono";font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin-top:3px}
-.fbar{height:3px;background:var(--panel-2);border-radius:2px;margin-top:6px;overflow:hidden}
-.fbar-fill{height:100%;background:var(--signal);border-radius:2px;transition:width .2s;width:0}
-.fbar-fill.done{background:var(--ok)}
-.fbar-fill.fail{background:var(--alert)}
-.facts{flex:none}
-.ftag{font-family:"DM Mono";font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
-.ftag.fail{color:var(--alert)}
-.blank{color:var(--dim);font-size:12.5px;padding:6px 0}
+@media (max-width:560px){ .fitem{grid-template-columns:36px minmax(0,1fr);padding:8px 0} }
 
-#chatlog{height:min(46vh,320px);overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:10px;padding-right:4px}
-.msg{font-size:13.5px;line-height:1.4}
-.msg b{color:var(--signal);font-weight:600;font-family:"Archivo";font-size:12px;letter-spacing:.04em;text-transform:uppercase;margin-right:6px}
-.msg.sys{color:var(--dim);font-family:"DM Mono";font-size:11.5px;letter-spacing:.03em}
+.fthumb{width:32px;height:32px;flex:none;position:relative;display:flex;align-items:center;justify-content:center;margin-left:8px;background:var(--xp-blue-md);color:#fff;font-size:8px;font-weight:bold;text-transform:uppercase;border-radius:2px;border:1px solid #1E4FA8;overflow:hidden}
+.fthumb img{width:100%;height:100%;object-fit:cover;border-radius:1px}
+@media (max-width:560px){ .fthumb{width:26px;height:26px;margin-left:0;font-size:6.5px} }
+.fdir{position:absolute;bottom:-3px;right:-3px;width:13px;height:13px;border-radius:50%;background:#fff;border:1px solid #999;font-size:8px;display:flex;align-items:center;justify-content:center;line-height:1;color:var(--xp-text)}
+.fdir.out{color:var(--xp-blue-md);border-color:var(--xp-blue-md)}
+.fdir.in{color:var(--xp-green);border-color:var(--xp-green)}
 
-.readout{display:flex;gap:16px;flex-wrap:wrap;font-family:"DM Mono";font-size:11px;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:10px}
-.readout b{color:var(--paper);font-weight:500}
-.hide{display:none !important}
-footer{color:var(--dim);font-size:11.5px;margin-top:30px;border-top:1px solid var(--line);padding-top:16px;font-family:"DM Mono";letter-spacing:.03em}
+.finfo{min-width:0;padding-right:6px}
+.fname{display:block;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;overflow-wrap:break-word;min-width:0;margin-bottom:2px}
+.fmeta{display:flex;gap:7px;flex-wrap:wrap;font-size:10px;color:var(--xp-text-dim);margin-bottom:4px}
+.fmeta .fspeed{color:var(--xp-blue-md);font-weight:bold}
+.fbar{height:9px;background:#fff;border:1px inset #B0B0B0;border-radius:1px;overflow:hidden;max-width:260px}
+.fbar-fill{height:100%;background:repeating-linear-gradient(90deg,#3FA34D 0 3px,#57C168 3px 6px);width:0;transition:width .15s linear}
+.fbar-fill.active{background:repeating-linear-gradient(90deg,var(--xp-blue-md) 0 3px,#4F8FDE 3px 6px);animation:barmove .8s linear infinite}
+.fbar-fill.done{background:repeating-linear-gradient(90deg,#3FA34D 0 3px,#57C168 3px 6px)}
+.fbar-fill.fail{background:repeating-linear-gradient(90deg,var(--xp-red) 0 3px,#E4536A 3px 6px)}
+@keyframes barmove{from{background-position:0 0}to{background-position:12px 0}}
 
-.tabbar{display:flex;gap:4px;background:var(--ink);border:1px solid var(--line);border-radius:var(--r);padding:4px;margin-bottom:12px;position:sticky;top:8px;z-index:10}
-.tab{flex:1;background:transparent;border:none;color:var(--dim);padding:9px 6px;font-size:11px;min-height:38px;border-radius:3px;display:flex;align-items:center;justify-content:center;gap:6px}
-.tab.active{background:var(--panel-2);color:var(--signal)}
-.badge{background:var(--signal);color:#1A1200;font-family:"DM Mono";font-size:9px;font-weight:700;border-radius:8px;padding:1px 6px;line-height:1.5}
+.facts{display:flex;align-items:center;justify-content:flex-end;gap:6px;padding-right:10px}
+@media (max-width:560px){ .facts{display:none} }
+.ftag{font-size:10.5px;color:var(--xp-text-dim)}
+.ftag.fail{color:var(--xp-red);font-weight:bold}
+.ftag.done{color:var(--xp-green);font-weight:bold}
+
+.blank{color:var(--xp-text-dim);font-size:12px;padding:22px 10px;text-align:center}
+
+/* ---------- botões estilo diálogo ---------- */
+.xpbtn{background:linear-gradient(180deg,var(--xp-btn-a),var(--xp-btn-b));border:1px solid var(--xp-btn-border);border-radius:3px;padding:6px 16px;font-size:12px;color:var(--xp-text);cursor:pointer;box-shadow:0 1px 0 rgba(255,255,255,.6) inset}
+.xpbtn:hover{border-color:var(--xp-blue-md)}
+.xpbtn:active{background:linear-gradient(180deg,var(--xp-btn-b),var(--xp-btn-a))}
+.xpbtn:disabled{color:#9C9A8C;cursor:default;opacity:1}
+.xpbtn.primary{font-weight:bold}
+.xpbtn.big{width:100%;padding:9px 16px;font-size:12.5px;margin-top:4px}
+.xpbtn.tiny{padding:3px 9px;font-size:10.5px}
+a.xpbtn{display:inline-flex;align-items:center;text-decoration:none}
+
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* ---------- tela de entrada (assistente) ---------- */
+.setup-outer{max-width:560px;margin:24px auto}
+.wizhead{display:flex;gap:14px;align-items:center;padding:18px 20px;background:linear-gradient(90deg,#0B2E86,#2C63D6);color:#fff}
+.wizhead .wic{width:44px;height:44px;flex:none}
+.wizhead h1{font-size:15px;margin-bottom:3px}
+.wizhead p{margin:0;font-size:11.5px;color:#D9E6FF}
+.wizbody{background:#fff;padding:18px 20px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:11.5px;color:var(--xp-text-dim);margin-bottom:4px}
+input[type=text]{width:100%;background:#fff;border:1px solid #7F9DB9;border-radius:2px;padding:6px 8px;font-size:13px;outline:none;box-shadow:inset 0 1px 2px rgba(0,0,0,.12)}
+input[type=text]:focus{border-color:var(--xp-blue-md);box-shadow:0 0 0 1px var(--xp-blue-lt) inset}
+
+.wizchoice{display:flex;gap:12px;align-items:flex-start;border:1px solid #D2D8E4;border-radius:4px;padding:12px;margin-bottom:10px;cursor:pointer;background:#fff}
+.wizchoice:hover{background:var(--xp-list-alt);border-color:var(--xp-pane-border)}
+.wizchoice.active{background:var(--xp-select-a);border-color:var(--xp-select-border)}
+.wizchoice .wic{width:34px;height:34px;flex:none}
+.wizchoice h2{font-size:12.5px;color:var(--xp-blue-dk);margin-bottom:3px}
+.wizchoice p{margin:0;font-size:11px;color:var(--xp-text-dim);line-height:1.4}
+
+.segPane{border-top:1px solid #E2E6EE;padding-top:14px;margin-top:4px}
+.segPane p.desc{font-size:11.5px;color:var(--xp-text-dim);margin:0 0 10px}
+input.codeInputBig{font-family:"Courier New",monospace;font-size:26px;letter-spacing:.45em;text-align:center;padding:10px 0 10px 12px;background:#F7FAFF}
+
+/* ---------- rodapé de status ---------- */
+.statusbar{display:flex;align-items:center;gap:0;background:linear-gradient(180deg,var(--xp-chrome-a),var(--xp-chrome-b));border-top:1px solid var(--xp-chrome-border);font-size:11px;color:var(--xp-text-dim)}
+.statusbar .seg{padding:4px 10px;border-right:1px inset #C8C6BA;display:flex;align-items:center;gap:6px}
+.statusbar .seg:last-child{border-right:none}
+.statusbar .seg.grow{flex:1}
+.meter{display:flex;align-items:flex-end;gap:1.5px;height:11px}
+.meter i{width:2.5px;background:#B0B0A8;border-radius:0;display:block}
+.meter i:nth-child(1){height:3px}.meter i:nth-child(2){height:5px}.meter i:nth-child(3){height:7px}
+.meter i:nth-child(4){height:9px}.meter i:nth-child(5){height:11px}
+.meter.on i{background:var(--xp-blue-md)}
+.meter.on.q-good i{background:var(--xp-green)}
+.meter.on.q-bad i{background:var(--xp-red)}
+.meter.on i:nth-child(5){animation:blip 1.6s ease-in-out infinite}
+@keyframes blip{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ---------- abas (Sala / Conversa) ---------- */
+.tabbar{display:flex;gap:2px;padding:0 8px;margin-top:2px}
+.tab{background:linear-gradient(180deg,#F5F4EA,#DEDCCC);border:1px solid var(--xp-chrome-border);border-bottom:none;border-radius:4px 4px 0 0;padding:6px 12px;font-size:11.5px;color:var(--xp-text-dim);cursor:pointer;position:relative;top:1px}
+.tab.active{background:#fff;color:var(--xp-blue-dk);font-weight:bold;border-bottom:1px solid #fff}
+.badge{background:var(--xp-red);color:#fff;font-size:9px;font-weight:bold;border-radius:8px;padding:1px 5px;margin-left:4px}
 .badge:empty{display:none}
-@media (min-width:900px){ .tabbar{display:none;position:static} .tabpanel{display:block !important} }
+@media (min-width:820px){ .tabbar{display:none} .tabpanel{display:block !important} }
 
-#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(14px);background:var(--ok);color:#04241A;font-family:"Archivo";font-weight:700;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;padding:12px 20px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:80;box-shadow:0 10px 26px rgba(0,0,0,.4);max-width:90vw;text-align:center}
+#toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(12px);background:#F5F4EA;color:var(--xp-blue-dk);border:1px solid var(--xp-btn-border);font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;padding:9px 18px;border-radius:3px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:80;box-shadow:0 8px 20px rgba(0,0,0,.35);max-width:90vw;text-align:center}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-@media (max-width:900px){ .grid{grid-template-columns:1fr} .lede{font-size:25px} }
+footer.legend{max-width:1180px;margin:10px auto 0;color:#EAF1FF;font-size:10.5px;text-align:center;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+
 @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
 </style>
 </head>
 <body>
-<div class="wrap">
 
-<header class="top">
-  <div class="brand">
-    <b>Ponte</b><span>entrega direta</span>
-    <button class="sm ghost hide" id="leaveBtn" aria-label="Sair da sala">Sair da sala</button>
-  </div>
-  <div class="spacer"></div>
-  <div class="status">
-    <div class="meter" id="meter"><i></i><i></i><i></i><i></i><i></i></div>
-    <span id="statusTxt">fora do ar</span>
-  </div>
-</header>
+<!-- ícones reaproveitados -->
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="ic-folder" viewBox="0 0 16 16">
+    <path d="M1 3.2A1.2 1.2 0 0 1 2.2 2h3.5c.35 0 .68.15.92.4l.9.9c.24.25.57.4.92.4H13.8A1.2 1.2 0 0 1 15 4.9v7.9A1.2 1.2 0 0 1 13.8 14H2.2A1.2 1.2 0 0 1 1 12.8V3.2z" fill="#F3AE33" stroke="#B8860B" stroke-width=".5"/>
+    <path d="M1 5.5h14v7.3A1.2 1.2 0 0 1 13.8 14H2.2A1.2 1.2 0 0 1 1 12.8V5.5z" fill="#FFE28C" stroke="#B8860B" stroke-width=".5"/>
+  </symbol>
+  <symbol id="ic-folder-open" viewBox="0 0 16 16">
+    <path d="M1 3.2A1.2 1.2 0 0 1 2.2 2h3.5c.35 0 .68.15.92.4l.9.9c.24.25.57.4.92.4H12.8A1.2 1.2 0 0 1 14 4.9v1H3.8a1 1 0 0 0-.96.73L1 12.2V3.2z" fill="#F3AE33" stroke="#B8860B" stroke-width=".4"/>
+    <path d="M1.2 12.4l1.7-6a1 1 0 0 1 .96-.73H15l-1.8 6.3a1.2 1.2 0 0 1-1.15.83H2.3a1.1 1.1 0 0 1-1.1-1.4z" fill="#FFE28C" stroke="#B8860B" stroke-width=".5"/>
+  </symbol>
+  <symbol id="ic-computer" viewBox="0 0 16 16">
+    <rect x="1.5" y="2.5" width="13" height="8.2" rx=".7" fill="#E7EEF7" stroke="#5A7CA6" stroke-width=".6"/>
+    <rect x="2.6" y="3.5" width="10.8" height="6" fill="#2C63D6"/>
+    <rect x="6" y="11" width="4" height="1.4" fill="#B0B0A8"/>
+    <rect x="4.5" y="12.4" width="7" height="1" rx=".4" fill="#8C8A7A"/>
+  </symbol>
+  <symbol id="ic-share" viewBox="0 0 16 16">
+    <path d="M1 3.2A1.2 1.2 0 0 1 2.2 2h3.5c.35 0 .68.15.92.4l.9.9c.24.25.57.4.92.4H13.8A1.2 1.2 0 0 1 15 4.9v7.9A1.2 1.2 0 0 1 13.8 14H2.2A1.2 1.2 0 0 1 1 12.8V3.2z" fill="#F3AE33" stroke="#B8860B" stroke-width=".5"/>
+    <path d="M1 5.5h14v7.3A1.2 1.2 0 0 1 13.8 14H2.2A1.2 1.2 0 0 1 1 12.8V5.5z" fill="#FFE28C" stroke="#B8860B" stroke-width=".5"/>
+    <circle cx="11.5" cy="11.5" r="4.3" fill="#5A93E8" stroke="#0B4FBF" stroke-width=".5"/>
+    <path d="M9.7 11.5l1.2 1.3 2-2.6" stroke="#fff" stroke-width=".9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+</svg>
 
-<!-- ================= ENTRADA ================= -->
-<section id="setup" class="setup">
-  <h1 class="lede">Envie arquivos no instante.<br><em>Sem nuvem guardando nada.</em></h1>
-  <p class="sub">Os dois navegadores se ligam direto, um no outro, por WebRTC. Um código curto encontra o caminho entre vocês — depois disso, os arquivos viajam de máquina para máquina, em pedaços, sem passar por nenhum servidor nosso.</p>
+<div class="winwrap">
+<div class="win">
 
-  <div class="field">
-    <label for="nome">Seu nome na sala</label>
-    <input type="text" id="nome" placeholder="Como os outros vão te ver" maxlength="20" autocomplete="off">
-  </div>
-
-  <div class="segTabs" role="tablist">
-    <button class="segTab active" data-seg="criar" role="tab" aria-selected="true">Criar sala</button>
-    <button class="segTab" data-seg="entrar" role="tab" aria-selected="false">Entrar com código</button>
-  </div>
-
-  <div class="segPane" id="seg-criar">
-    <p>Você vira o anfitrião. Gera um código e manda para os amigos — cada um entra quando quiser, sem mais nada da sua parte.</p>
-    <button class="key big" id="btnHost">Criar sala</button>
-    <p class="err" id="hostSetupErr"></p>
-  </div>
-
-  <div class="segPane hide" id="seg-entrar">
-    <p>Peça os 6 números para quem criou a sala.</p>
-    <input type="text" id="codeIn" class="codeInputBig" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" autocomplete="off" style="font-family:'DM Mono';font-size:32px;letter-spacing:.5em;text-align:center;padding:14px 0 14px 10px;background:var(--panel-2);margin-bottom:12px">
-    <button class="key big" id="btnJoin">Entrar na sala</button>
-    <p class="err" id="joinErr"></p>
-  </div>
-</section>
-
-<!-- ================= SALA ================= -->
-<section id="app" class="hide">
-  <div class="warn hide" id="connBanner">
-    <span id="connBannerTxt">Reconectando…</span>
-    <button class="tiny ghost hide" id="btnRetryNow">Tentar agora</button>
-  </div>
-  <div class="grid">
-    <div>
-      <div class="drop" id="dropZone">
-        <b>Solte arquivos aqui</b>
-        <span id="dropSub">ou toque para escolher — vão para todo mundo na sala</span>
-        <input type="file" id="fileInput" multiple>
-      </div>
-
-      <div class="codeChip hide" id="codeChip">
-        <span>código da sala</span><b id="codeChipTxt">------</b>
-        <button class="tiny ghost" id="btnChipCopy" style="margin-left:auto">Copiar</button>
-      </div>
-
-      <p class="err" id="appErr"></p>
-
-      <details class="diag" style="margin-top:8px;border-top:1px solid var(--line);padding-top:4px">
-        <summary style="cursor:pointer;font-family:'DM Mono';font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);list-style:none;padding:9px 0;display:flex;align-items:center;gap:7px;min-height:30px">Diagnóstico da ligação</summary>
-        <div class="readout">
-          <span>papel <b id="roRole">—</b></span>
-          <span>conectados <b id="roPeers">0</b></span>
-          <span>ida-e-volta <b id="roRtt">—</b></span>
-        </div>
-      </details>
-    </div>
-
-    <div>
-      <div class="tabbar" role="tablist">
-        <button class="tab active" data-tab="arquivos" role="tab" aria-selected="true">Arquivos <span class="badge" id="tabArquivosBadge"></span></button>
-        <button class="tab" data-tab="sala" role="tab" aria-selected="false">Sala</button>
-        <button class="tab" data-tab="chat" role="tab" aria-selected="false">Conversa <span class="badge hide" id="tabChatBadge"></span></button>
-      </div>
-
-      <div class="panel tabpanel" id="panel-arquivos">
-        <h3>Arquivos <span class="tag" id="fCount">0 arquivos</span></h3>
-        <div id="fileList"></div>
-        <p class="blank" id="fileBlank">Nenhum arquivo ainda. Solte um arquivo na área ao lado, ou toque nela para escolher.</p>
-      </div>
-
-      <div class="panel tabpanel hide" id="panel-sala">
-        <h3>Código da sala</h3>
-        <div class="codeboxes" id="codeboxes"></div>
-        <div class="row">
-          <button class="sm" id="btnCopyCode">Copiar código</button>
-          <button class="sm ghost hide" id="btnShareCode">Compartilhar</button>
-        </div>
-        <p class="hint">Qualquer pessoa com este código entra na sala sozinha. Vale mandar para mais amigos, não só quem criou.</p>
-        <h3 style="margin-top:18px">Na sala</h3>
-        <ul class="peers" id="peerList"></ul>
-      </div>
-
-      <div class="panel tabpanel hide" id="panel-chat">
-        <h3>Conversa</h3>
-        <div id="chatlog"></div>
-        <div class="row">
-          <input type="text" id="chatIn" placeholder="Escreva algo" maxlength="300" style="flex:1;min-width:120px" autocomplete="off">
-          <button id="btnSend" class="sm">Enviar</button>
-        </div>
-      </div>
+  <div class="titlebar">
+    <svg class="ic" viewBox="0 0 16 16"><use href="#ic-folder"/></svg>
+    <div class="txt" id="winTitle">Sala Compartilhada — Ponte</div>
+    <div class="capbtns">
+      <button class="capbtn" type="button" title="Minimizar">_</button>
+      <button class="capbtn" type="button" title="Restaurar">□</button>
+      <button class="capbtn close" type="button" id="btnCloseWin" title="Sair da sala">×</button>
     </div>
   </div>
 
-  <footer>
-    Os arquivos viajam direto entre os navegadores, em pedaços — nenhum site nosso vê ou guarda esse conteúdo. Só a apresentação inicial passa pela nuvem pública do PeerJS, que sabe apenas que dois códigos existem, nunca o que vocês trocam. Se todo mundo fechar a aba, a sala deixa de existir — e os arquivos que ainda não terminaram de chegar, também.
-    <br><span style="opacity:.5">build v1</span>
-  </footer>
-</section>
+  <div class="menubar">
+    <span>Arquivo</span><span>Editar</span><span>Exibir</span><span>Favoritos</span><span>Ferramentas</span><span>Ajuda</span>
+  </div>
+
+  <div class="toolbar">
+    <button class="tbtn" disabled>◁ Voltar</button>
+    <button class="tbtn" disabled>Avançar ▷</button>
+    <span class="tsep"></span>
+    <button class="tbtn key" id="btnPickFile">📎 Adicionar arquivo</button>
+    <span class="tsep"></span>
+    <button class="tbtn" id="btnCopyCode">Copiar código</button>
+    <button class="tbtn hide" id="btnShareCode">Compartilhar pasta</button>
+    <span class="tsep"></span>
+    <button class="tbtn hide" id="leaveBtn" aria-label="Sair da sala">Sair da sala</button>
+  </div>
+
+  <div class="addressbar">
+    <span class="lbl">Endereço</span>
+    <div class="addrfield">
+      <svg class="ic" viewBox="0 0 16 16"><use href="#ic-folder"/></svg>
+      <span class="path">Rede ▸ Ponte ▸ Sala Compartilhada</span>
+    </div>
+    <div class="addr-net">
+      <div class="meter" id="meter"><i></i><i></i><i></i><i></i><i></i></div>
+      <span id="statusTxt">fora do ar</span>
+    </div>
+  </div>
+
+  <div class="winbody">
+
+  <!-- ================= ENTRADA (assistente) ================= -->
+  <section id="setup" class="setup-outer">
+    <div class="wizhead">
+      <svg class="wic" viewBox="0 0 16 16"><use href="#ic-share"/></svg>
+      <div>
+        <h1>Assistente de Pasta Compartilhada</h1>
+        <p>Ligação direta entre dois navegadores, sem nuvem guardando os arquivos.</p>
+      </div>
+    </div>
+    <div class="wizbody">
+      <div class="field">
+        <label for="nome">Seu nome na rede</label>
+        <input type="text" id="nome" placeholder="Como os outros vão te ver" maxlength="20" autocomplete="off">
+      </div>
+
+      <div class="wizchoice segTab active" data-seg="criar" tabindex="0" role="button">
+        <svg class="wic" viewBox="0 0 16 16"><use href="#ic-share"/></svg>
+        <div>
+          <h2>Compartilhar uma pasta nova</h2>
+          <p>Você vira o anfitrião. Gera um código de acesso e manda para os amigos — cada um entra quando quiser.</p>
+        </div>
+      </div>
+      <div class="wizchoice segTab" data-seg="entrar" tabindex="0" role="button">
+        <svg class="wic" viewBox="0 0 16 16"><use href="#ic-computer"/></svg>
+        <div>
+          <h2>Conectar a uma pasta existente</h2>
+          <p>Peça o código de 6 números para quem compartilhou a pasta.</p>
+        </div>
+      </div>
+
+      <div class="segPane" id="seg-criar">
+        <p class="desc">A pasta fica visível para quem tiver o código — ninguém mais.</p>
+        <button class="xpbtn primary big" id="btnHost">Compartilhar esta pasta</button>
+        <p class="err" id="hostSetupErr"></p>
+      </div>
+      <div class="segPane hide" id="seg-entrar">
+        <p class="desc">Digite o código de acesso da pasta compartilhada.</p>
+        <input type="text" id="codeIn" class="codeInputBig" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" autocomplete="off">
+        <button class="xpbtn primary big" id="btnJoin">Conectar</button>
+        <p class="err" id="joinErr"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SALA ================= -->
+  <section id="app" class="hide">
+    <div class="warn hide" id="connBanner">
+      <span id="connBannerTxt">Reconectando…</span>
+      <button class="xpbtn tiny" id="btnRetryNow">Tentar agora</button>
+    </div>
+
+    <div class="gridxp">
+      <!-- ---------- barra lateral (painel de tarefas) ---------- -->
+      <div class="sidebar">
+        <div class="tpanel">
+          <div class="tphead">Tarefas de arquivo</div>
+          <div class="tpbody">
+            <div class="tasklink" id="btnPickFile2">
+              <svg class="ic" viewBox="0 0 16 16"><use href="#ic-folder-open"/></svg>
+              Adicionar um arquivo
+            </div>
+            <div class="tasklink" id="btnCopyCode2">
+              <svg class="ic" viewBox="0 0 16 16"><use href="#ic-folder"/></svg>
+              Copiar código de acesso
+            </div>
+            <div class="tasklink hide" id="btnShareCode2">
+              <svg class="ic" viewBox="0 0 16 16"><use href="#ic-share"/></svg>
+              Compartilhar esta pasta
+            </div>
+          </div>
+        </div>
+
+        <div class="tpanel">
+          <div class="tphead">Código de acesso</div>
+          <div class="tpbody hide" id="codeChip">
+            <div class="codebar">
+              <b id="codeChipTxt">------</b>
+              <span>este código abre a pasta sozinho</span>
+            </div>
+            <button class="xpbtn tiny" id="btnChipCopy" style="margin-top:6px">Copiar código</button>
+          </div>
+        </div>
+
+        <div class="tpanel">
+          <div class="tphead">Computadores na rede <span class="tag" id="roPeersTag" style="margin-left:auto;font-weight:normal"></span></div>
+          <div class="tpbody">
+            <ul class="peers" id="peerList"></ul>
+          </div>
+        </div>
+
+        <div class="tabbar" role="tablist">
+          <button class="tab active" data-tab="sala" role="tab" aria-selected="true">Detalhes</button>
+          <button class="tab" data-tab="chat" role="tab" aria-selected="false">Conversa <span class="badge hide" id="tabChatBadge"></span></button>
+        </div>
+
+        <div class="tpanel tabpanel" id="panel-sala" style="border-top:none;border-top-left-radius:0;border-top-right-radius:0">
+          <div class="tpbody">
+            <div class="codeboxes" id="codeboxes" style="display:flex;gap:4px;margin-bottom:8px"></div>
+            <p style="font-size:11px;color:var(--xp-text-dim);margin:0 0 8px">Qualquer pessoa com este código entra na pasta sozinha. Vale mandar para mais amigos.</p>
+            <div class="readout" style="font-size:10.5px;color:var(--xp-text-dim);display:flex;gap:10px;flex-wrap:wrap">
+              <span>Papel: <b id="roRole" style="color:var(--xp-text)">—</b></span>
+              <span>Ligações: <b id="roPeers" style="color:var(--xp-text)">0</b></span>
+              <span>Latência: <b id="roRtt" style="color:var(--xp-text)">—</b></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tpanel tabpanel hide" id="panel-chat" style="border-top:none;border-top-left-radius:0;border-top-right-radius:0">
+          <div class="tpbody">
+            <div id="chatlog"></div>
+            <div class="row" style="gap:4px">
+              <input type="text" id="chatIn" placeholder="Escreva algo" maxlength="300" style="flex:1;min-width:80px;font-size:12px" autocomplete="off">
+              <button id="btnSend" class="xpbtn tiny">Enviar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---------- conteúdo principal (a pasta em si) ---------- -->
+      <div class="main">
+        <div class="dropzone" id="dropZone">
+          <svg class="bigic" viewBox="0 0 16 16"><use href="#ic-folder-open"/></svg>
+          <b>Solte arquivos aqui para compartilhar</b>
+          <span id="dropSub">ou toque para escolher — vão para todo mundo conectado nesta pasta</span>
+          <input type="file" id="fileInput" multiple>
+        </div>
+
+        <p class="err" id="appErr"></p>
+
+        <div class="sectionhead">
+          <svg class="ic" viewBox="0 0 16 16" style="width:14px;height:14px"><use href="#ic-folder"/></svg>
+          <b>Nesta pasta</b>
+          <span class="countbadge" id="tabArquivosBadge"></span>
+          <span class="cnt" id="fCount">0 arquivos</span>
+        </div>
+
+        <div class="filelist-wrap">
+          <div class="filelist-head"><span></span><span>Nome</span><span>Ação</span></div>
+          <div id="fileList"></div>
+          <p class="blank hide" id="fileBlank">Esta pasta está vazia. Solte um arquivo acima, ou toque nele para escolher.</p>
+        </div>
+
+        <details class="diag" style="margin-top:14px">
+          <summary style="cursor:pointer;font-size:11px;color:var(--xp-text-dim)">Diagnóstico da ligação</summary>
+        </details>
+      </div>
+    </div>
+
+  </section>
+
+  <div class="statusbar">
+    <div class="seg grow" id="statusObjCount">0 objeto(s)</div>
+    <div class="seg" id="statusSize"></div>
+    <div class="seg">Rede local (WebRTC)</div>
+  </div>
 
 </div>
+</div>
+
+<footer class="legend">
+  Os arquivos viajam direto entre os navegadores, em pedaços — nenhum site nosso vê ou guarda esse conteúdo. Só a apresentação inicial passa pela nuvem pública do PeerJS. Se todo mundo fechar a aba, a pasta deixa de existir.
+  <br><span style="opacity:.65">build xp1</span>
+</footer>
 
 <div id="toast"></div>
 
@@ -288,9 +475,13 @@ footer{color:var(--dim);font-size:11.5px;margin-top:30px;border-top:1px solid va
 const $ = s => document.querySelector(s);
 const ROOM_PREFIX='ponte9-';
 const SITE_URL=location.origin+location.pathname;
-const CHUNK_SIZE=16*1024;
-const BUFFER_HIGH=1024*1024;
-const BUFFER_LOW=256*1024;
+/* Pedaço de 256KB em vez de 16KB: testei fora do navegador e o custo de
+   empacotar cada mensagem é menor que 1ms — o gasto real está em fazer
+   centenas de viagens de ida-e-volta desnecessárias. Um arquivo de 10MB
+   precisa de 640 mensagens a 16KB, e só 40 a 256KB. */
+const CHUNK_SIZE=256*1024;
+const BUFFER_HIGH=4*1024*1024;
+const BUFFER_LOW=1024*1024;
 
 let role=null, myName='', hostName='';
 const peers=new Map();
@@ -443,19 +634,30 @@ function filePct(t){
   const done = t.dir==='out' ? (t.sent||0) : (t.received||0);
   return t.total ? Math.min(100,Math.round(done/t.total*100)) : 0;
 }
-function fileMetaText(t){
+function fmtSpeed(bps){ return bps&&bps>1024 ? fmtBytes(bps)+'/s' : ''; }
+function buildMeta(t){
   const size=fmtBytes(t.size);
-  if(t.failed) return size+' · de '+t.by+' · falhou';
-  if(t.done) return size+' · de '+t.by+' · completo';
-  return size+' · de '+t.by+' · '+(t.dir==='out'?'enviando ':'recebendo ')+filePct(t)+'%';
+  if(t.failed) return {status:size+' · de '+t.by+' · falhou',speed:''};
+  if(t.done) return {status:size+' · de '+t.by+' · completo',speed:''};
+  const verbo=t.dir==='out'?'enviando':'recebendo';
+  return {status:size+' · de '+t.by+' · '+verbo+' '+filePct(t)+'%', speed:fmtSpeed(t.speed)};
+}
+function renderMetaInto(el,t){
+  const {status,speed}=buildMeta(t);
+  el.innerHTML='';
+  const s=document.createElement('span'); s.textContent=status; el.appendChild(s);
+  if(speed){ const sp=document.createElement('span'); sp.className='fspeed'; sp.textContent=speed; el.appendChild(sp); }
 }
 function bumpProgress(fileId){
   const t=transfers[fileId]; if(!t) return;
   t._lastPct=filePct(t);
   const fill=document.getElementById('ffill-'+fileId);
-  if(fill) fill.style.width=t._lastPct+'%';
+  if(fill){
+    fill.style.width=t._lastPct+'%';
+    fill.classList.toggle('active',!t.done&&!t.failed);
+  }
   const meta=document.getElementById('fmeta-'+fileId);
-  if(meta) meta.textContent=fileMetaText(t);
+  if(meta) renderMetaInto(meta,t);
 }
 function renderFiles(){
   const list=$('#fileList'); list.innerHTML='';
@@ -469,14 +671,17 @@ function renderFiles(){
     }else{
       thumb.textContent=extIcon(t.name);
     }
+    const dir=document.createElement('span'); dir.className='fdir '+t.dir; dir.textContent=t.dir==='out'?'↑':'↓'; thumb.appendChild(dir);
     const info=document.createElement('div'); info.className='finfo';
     const name=document.createElement('span'); name.className='fname'; name.textContent=t.name;
-    const meta=document.createElement('span'); meta.className='fmeta'; meta.id='fmeta-'+id; meta.textContent=fileMetaText(t);
+    const meta=document.createElement('span'); meta.className='fmeta'; meta.id='fmeta-'+id;
+    info.appendChild(name); info.appendChild(meta);
+    renderMetaInto(meta,t);
     const bar=document.createElement('div'); bar.className='fbar';
-    const fill=document.createElement('div'); fill.className='fbar-fill'+(t.done?' done':'')+(t.failed?' fail':''); fill.id='ffill-'+id;
+    const fill=document.createElement('div'); fill.className='fbar-fill'+(t.done?' done':'')+(t.failed?' fail':'')+(!t.done&&!t.failed?' active':''); fill.id='ffill-'+id;
     fill.style.width=filePct(t)+'%';
     bar.appendChild(fill);
-    info.appendChild(name); info.appendChild(meta); info.appendChild(bar);
+    info.appendChild(bar);
     const acts=document.createElement('div'); acts.className='facts';
     if(t.done&&t.blobUrl){
       const a=document.createElement('a'); a.className='tiny key'; a.href=t.blobUrl; a.download=t.name; a.textContent='Baixar';
@@ -495,10 +700,16 @@ function renderFiles(){
   const badge=$('#tabArquivosBadge'); badge.textContent=pending||'';
 }
 
+function bufferedAmountOk(conn){
+  const dc=conn.dataChannel;
+  return !dc||dc.bufferedAmount<BUFFER_HIGH;
+}
 function waitBufferedLow(conn){
+  // Caminho rápido: se não há aperto no buffer, nem cria uma Promise —
+  // fazer isso em série, por pedaço, pesava mais do que devia.
+  if(bufferedAmountOk(conn)) return null;
   return new Promise(resolve=>{
     const dc=conn.dataChannel;
-    if(!dc||dc.bufferedAmount<BUFFER_HIGH){ resolve(); return; }
     let done=false;
     const finish=()=>{ if(done) return; done=true; try{dc.removeEventListener('bufferedamountlow',finish);}catch(_){} resolve(); };
     try{ dc.bufferedAmountLowThreshold=BUFFER_LOW; dc.addEventListener('bufferedamountlow',finish); }catch(_){}
@@ -507,35 +718,53 @@ function waitBufferedLow(conn){
 }
 
 async function sendFile(file){
-  if(!file||!file.size){ return; }
+  if(!file||(!file.size&&file.size!==0)) return;
   const fileId=rand()+rand();
   const mime=file.type||'application/octet-stream';
   const total=Math.max(1,Math.ceil(file.size/CHUNK_SIZE));
   const targets = role==='host'
     ? [...peers.values()].filter(p=>p.on).map(p=>p.conn)
     : (guestConn&&guestConn.open?[guestConn]:[]);
-  transfers[fileId]={name:file.name.slice(0,180),size:file.size,mime,by:myName,dir:'out',sent:0,total,done:false,failed:!targets.length,startedAt:now()};
+  transfers[fileId]={name:file.name.slice(0,180),size:file.size,mime,by:myName,dir:'out',sent:0,total,done:false,failed:!targets.length,startedAt:now(),speed:0};
   renderFiles();
   if(!targets.length){ $('#appErr').textContent='Não tem ninguém na sala pra receber ainda.'; return; }
+
+  // Lê o arquivo inteiro uma vez em memória; fatiar um ArrayBuffer já
+  // carregado é síncrono, bem mais rápido que ler cada pedaço na hora.
+  let fileBuf;
+  try{ fileBuf=await file.arrayBuffer(); }
+  catch(_){ transfers[fileId].failed=true; renderFiles(); return; }
+
   const meta={t:'file-start',fileId,name:file.name.slice(0,180),size:file.size,mime,by:myName,total};
   let sentUnits=0; const totalUnits=total*targets.length;
+  let lastUiAt=0, lastSpeedAt=now(), bytesSinceLastSpeed=0;
   await Promise.all(targets.map(async conn=>{
     send(conn,meta);
     let ok=true;
     for(let i=0;i<total;i++){
       if(!conn.open){ ok=false; break; }
-      const slice=file.slice(i*CHUNK_SIZE,Math.min(file.size,(i+1)*CHUNK_SIZE));
-      let buf; try{ buf=await slice.arrayBuffer(); }catch(_){ ok=false; break; }
-      await waitBufferedLow(conn);
+      const start=i*CHUNK_SIZE, end=Math.min(file.size,start+CHUNK_SIZE);
+      const chunk=fileBuf.slice(start,end);
+      const wait=waitBufferedLow(conn);
+      if(wait) await wait;
       if(!conn.open){ ok=false; break; }
-      send(conn,{t:'file-chunk',fileId,index:i,data:buf});
+      send(conn,{t:'file-chunk',fileId,index:i,data:chunk});
       sentUnits++;
-      transfers[fileId].sent=Math.round(sentUnits/totalUnits*total);
-      bumpProgress(fileId);
+      bytesSinceLastSpeed += (end-start);
+      const t2=now();
+      if(t2-lastUiAt>90||i===total-1){
+        lastUiAt=t2;
+        transfers[fileId].sent=Math.round(sentUnits/totalUnits*total);
+        if(t2-lastSpeedAt>250){
+          transfers[fileId].speed=bytesSinceLastSpeed/((t2-lastSpeedAt)/1000);
+          bytesSinceLastSpeed=0; lastSpeedAt=t2;
+        }
+        bumpProgress(fileId);
+      }
     }
     send(conn, ok?{t:'file-end',fileId}:{t:'file-cancel',fileId});
   }));
-  transfers[fileId].done=true; transfers[fileId].sent=total;
+  transfers[fileId].done=true; transfers[fileId].sent=total; transfers[fileId].speed=0;
   renderFiles();
   showToast('Arquivo enviado!');
 }
@@ -545,7 +774,7 @@ function handleFileStart(m,quem,sourceConn){
   transfers[m.fileId]={
     name:(m.name||'arquivo').slice(0,180), size:m.size||0, mime:m.mime||'application/octet-stream',
     by:m.by||quem, dir:'in', total:Math.max(1,m.total||1), received:0, chunks:new Array(Math.max(1,m.total||1)),
-    done:false, failed:false, startedAt:now(), lastChunkAt:now()
+    done:false, failed:false, startedAt:now(), lastChunkAt:now(), speed:0, _lastUiAt:0, _bytesSince:0, _speedAt:now()
   };
   renderFiles();
   log('está enviando "'+transfers[m.fileId].name+'"',m.by||quem);
@@ -554,9 +783,16 @@ function handleFileStart(m,quem,sourceConn){
 function handleFileChunk(m,sourceConn){
   const t=transfers[m.fileId];
   if(!t||t.done||t.failed){ if(role==='host'&&sourceConn) broadcast(m,sourceConn.peer); return; }
-  if(m.index>=0&&m.index<t.chunks.length&&!t.chunks[m.index]){ t.chunks[m.index]=m.data; t.received++; }
+  if(m.index>=0&&m.index<t.chunks.length&&!t.chunks[m.index]){
+    t.chunks[m.index]=m.data; t.received++; t._bytesSince+=(m.data&&m.data.byteLength)||0;
+  }
   t.lastChunkAt=now();
-  bumpProgress(m.fileId);
+  const t2=now();
+  if(t2-t._lastUiAt>90||t.received===t.total){
+    t._lastUiAt=t2;
+    if(t2-t._speedAt>250){ t.speed=t._bytesSince/((t2-t._speedAt)/1000); t._bytesSince=0; t._speedAt=t2; }
+    bumpProgress(m.fileId);
+  }
   if(role==='host'&&sourceConn) broadcast(m,sourceConn.peer);
 }
 function handleFileEnd(m,sourceConn){
@@ -565,7 +801,7 @@ function handleFileEnd(m,sourceConn){
     try{
       const blob=new Blob(t.chunks.filter(Boolean),{type:t.mime});
       t.blobUrl=URL.createObjectURL(blob);
-      t.done=true;
+      t.done=true; t.speed=0;
     }catch(_){ t.failed=true; }
     renderFiles();
   }
@@ -894,6 +1130,34 @@ window.addEventListener('pagehide',()=>{
   try{ guestConn&&guestConn.close(); }catch(_){}
   try{ guestPeer&&guestPeer.destroy(); }catch(_){}
 });
+</script><script>
+/* Complemento visual: liga os atalhos decorativos novos (botão fechar da
+   janela, itens duplicados da barra de tarefas) aos elementos reais que já
+   existem acima — sem duplicar nenhuma lógica de rede/arquivo. */
+document.getElementById('btnPickFile').addEventListener('click',()=>document.getElementById('fileInput').click());
+document.getElementById('btnPickFile2').addEventListener('click',()=>document.getElementById('fileInput').click());
+document.getElementById('btnCopyCode2').addEventListener('click',()=>document.getElementById('btnCopyCode').click());
+document.getElementById('btnShareCode2').addEventListener('click',()=>document.getElementById('btnShareCode').click());
+document.getElementById('btnCloseWin').addEventListener('click',()=>{
+  if(typeof appOpen!=='undefined'&&appOpen) document.getElementById('leaveBtn').click();
+});
+if(navigator.share) document.getElementById('btnShareCode2').classList.remove('hide');
+
+/* Contador de objetos e tamanho na barra de status, no estilo clássico do
+   Explorer — observa a lista de arquivos sem duplicar a lógica de envio. */
+function updateStatusBar(){
+  const list=document.getElementById('fileList');
+  const rows=list?list.children.length:0;
+  document.getElementById('statusObjCount').textContent=rows+(rows===1?' objeto':' objetos');
+  let totalBytes=0;
+  if(typeof transfers==='object'){
+    Object.keys(transfers).forEach(id=>{ totalBytes+=transfers[id].size||0; });
+  }
+  document.getElementById('statusSize').textContent = totalBytes ? fmtBytes(totalBytes) : '';
+  document.getElementById('roPeersTag').textContent = document.getElementById('roPeers') ? document.getElementById('roPeers').textContent+' ligado(s)' : '';
+}
+updateStatusBar();
+setInterval(updateStatusBar,1000);
 </script>
 </body>
 </html>
