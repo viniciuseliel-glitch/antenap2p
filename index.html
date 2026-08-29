@@ -54,7 +54,7 @@ input[type=text],textarea{width:100%;background:var(--panel);border:1px solid va
 input[type=text]:focus,textarea:focus{border-color:var(--signal);box-shadow:0 0 0 1px var(--signal-dim)}
 .row{display:flex;gap:10px;flex-wrap:wrap}
 
-button{font-family:"Archivo";font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase;background:var(--panel-2);color:var(--paper);border:1px solid var(--line);padding:12px 16px;border-radius:var(--r);cursor:pointer;transition:background .15s,border-color .15s,color .15s;min-height:46px}
+button{font-family:"Archivo";font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase;background:var(--panel-2);color:var(--paper);border:1px solid var(--line);padding:12px 16px;border-radius:var(--r);cursor:pointer;transition:background .15s,border-color .15s,color .15s;min-height:46px;white-space:nowrap;flex-shrink:0}
 button:hover{border-color:var(--dim)}
 button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
 button.key{background:var(--signal);color:#1A1200;border-color:var(--signal)}
@@ -82,7 +82,7 @@ button.big{width:100%;padding:15px 16px;font-size:14px;min-height:52px}
 .stage .ratio > *{position:absolute;inset:0;width:100%;height:100%;max-width:100%}
 .empty{display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;text-align:center;color:var(--dim);font-family:"DM Mono";font-size:12px;letter-spacing:.1em;text-transform:uppercase;padding:20px;background:#000;pointer-events:none}
 .empty button{pointer-events:auto}
-#playerHolder iframe,#pipVideo iframe{position:absolute;inset:0;width:100%;height:100%;max-width:100%;border:0;display:block}
+#playerHolder iframe,#pipVideo iframe{position:absolute !important;inset:0 !important;width:100% !important;height:100% !important;max-width:100% !important;border:0;display:block}
 #pipVideo{position:relative}
 .warn{background:rgba(255,176,32,.08);border:1px solid var(--signal-dim);color:var(--signal);padding:10px 12px;border-radius:var(--r);font-size:13px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 #tapPlay{background:rgba(0,0,0,.82);color:var(--fog)}
@@ -99,23 +99,24 @@ button.big{width:100%;padding:15px 16px;font-size:14px;min-height:52px}
 .codeboxes{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin:4px 0 14px}
 .codeboxes .digit{aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--line);border-radius:var(--r);font-family:"DM Mono";font-size:22px;font-weight:500;color:var(--signal)}
 
-ul.peers{list-style:none;margin:0;padding:0}
-ul.peers li{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+ul.peers{list-style:none;margin:0;padding:0;overflow-x:hidden}
+ul.peers li{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px;max-width:100%}
 ul.peers li:last-child{border-bottom:none}
+.peerName{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--dim);flex:none}
 .dot.on{background:var(--ok)}
 .dot.wait{background:var(--signal)}
 .tag{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-left:auto}
 
-ul.queue{list-style:none;margin:0;padding:0;max-height:360px;overflow-y:auto}
-ul.queue li{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+ul.queue{list-style:none;margin:0;padding:0;max-height:360px;overflow-y:auto;overflow-x:hidden}
+ul.queue li{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);max-width:100%}
 ul.queue li:last-child{border-bottom:none}
 ul.queue img{width:64px;height:36px;object-fit:cover;border-radius:2px;flex:none;background:var(--panel-2)}
 .qb{flex:1;min-width:0}
-.qt{display:block;font-size:13px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.qm{font-family:"DM Mono";font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.qt{display:block;font-size:13px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:break-word}
+.qm{font-family:"DM Mono";font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qacts{display:flex;flex-direction:column;gap:4px;flex:none}
-.nowbox{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--signal-dim);border-radius:var(--r);padding:9px;margin-bottom:12px;background:rgba(255,176,32,.05)}
+.nowbox{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--signal-dim);border-radius:var(--r);padding:9px;margin-bottom:12px;background:rgba(255,176,32,.05);max-width:100%}
 .nowbox .qm{color:var(--signal)}
 .blank{color:var(--dim);font-size:12.5px;padding:6px 0}
 
@@ -158,7 +159,7 @@ details.diag .readout{margin-top:2px}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 @media (max-width:900px){
-  .grid{grid-template-columns:1fr}
+  .grid{grid-template-columns:minmax(0,1fr)}
   .lede{font-size:25px}
   .stage{margin:0 -16px;border-radius:0;border-left:none;border-right:none}
 }
@@ -253,6 +254,7 @@ details.diag .readout{margin-top:2px}
           <span>player <b id="roPlayer">carregando</b></span>
         </div>
         <button class="ghost sm" id="btnReload" style="margin-top:10px">Recarregar player</button>
+        <p class="hint" id="overflowDiag" style="margin-top:10px"></p>
       </details>
     </div>
 
@@ -303,6 +305,7 @@ details.diag .readout{margin-top:2px}
 
   <footer>
     O vídeo, o chat e a fila viajam direto entre os navegadores — nenhum site nosso vê esses dados. Só a apresentação inicial passa pela nuvem pública do PeerJS, que sabe apenas que dois códigos existem, nunca o conteúdo. Se todo mundo fechar a aba, a sala deixa de existir.
+    <br><span style="opacity:.5">build v13</span>
   </footer>
 </section>
 
@@ -398,7 +401,7 @@ function renderPeers(){
   const add=(name,state,tag)=>{
     const li=document.createElement('li');
     const dot=document.createElement('span'); dot.className='dot '+state; li.appendChild(dot);
-    const n=document.createElement('span'); n.textContent=name; li.appendChild(n);
+    const n=document.createElement('span'); n.className='peerName'; n.textContent=name; li.appendChild(n);
     if(tag){const t=document.createElement('span');t.className='tag';t.textContent=tag;li.appendChild(t);}
     ul.appendChild(li);
   };
@@ -575,6 +578,30 @@ setTimeout(()=>{
   }
 },12000);
 
+/* A API do YouTube tem histórico de calcular errado width/height quando
+   recebem '100%' — às vezes usa como base a largura do body inteiro em vez
+   do contêiner real, e o iframe nasce mais largo que a tela. Em vez de
+   brigar com porcentagem, medimos o contêiner em pixels de verdade e damos
+   esse número pronto; um ResizeObserver mantém isso atualizado depois. */
+function measureContainer(container){
+  const r=container.getBoundingClientRect();
+  let w=Math.round(r.width), h=Math.round(r.height);
+  if(!(w>0)){ const p=container.parentElement; w=p?Math.round(p.getBoundingClientRect().width):320; }
+  if(!(h>0)) h=Math.round(w*9/16);
+  return {w,h};
+}
+let playerResizeObserver=null;
+function watchContainerResize(container){
+  if(playerResizeObserver){ try{playerResizeObserver.disconnect();}catch(_){} playerResizeObserver=null; }
+  if(!('ResizeObserver' in window)) return;
+  playerResizeObserver=new ResizeObserver(()=>{
+    if(!player||!playerReady) return;
+    const {w,h}=measureContainer(container);
+    try{ player.setSize(w,h); }catch(_){}
+  });
+  try{ playerResizeObserver.observe(container); }catch(_){}
+}
+
 /* Monta (ou remonta) o player dentro de um contêiner — usado ao entrar e sair
    da janela flutuante, já que mudar um iframe de documento o recarrega. */
 function mountPlayer(container,opts){
@@ -598,11 +625,18 @@ function mountPlayer(container,opts){
   const vars={controls:1,rel:0,modestbranding:1,playsinline:1,enablejsapi:1};
   if(alvo&&at>0) vars.start=Math.floor(at);
   if(httpOrigin) vars.origin=httpOrigin;
+  const {w,h}=measureContainer(container);
   // A chave videoId só entra quando existe um vídeo. Passá-la como undefined
   // faz a API montar um embed vazio que nunca responde.
-  const conf={width:'100%',height:'100%',playerVars:vars,events:{
+  const conf={width:w,height:h,playerVars:vars,events:{
       onReady:()=>{
         playerReady=true; mountRetries=0; $('#appErr').textContent='';
+        // A medida no momento do mount pode já estar desatualizada (fontes
+        // carregando, barra do navegador recolhendo); reafirma o tamanho
+        // assim que o player realmente responde.
+        const fresh=measureContainer(container);
+        try{ player.setSize(fresh.w,fresh.h); }catch(_){}
+        watchContainerResize(container);
         if(pendingLoad){
           const p=pendingLoad; pendingLoad=null;
           loadVideo(p.id,p.at,p.playing);
@@ -720,6 +754,7 @@ setInterval(()=>{
   }
   checkBlocked();
   updatePlayerReadout();
+  checkOverflowCulprit();
   if(role==='guest'&&guestConn&&guestConn.open&&lastPongAt&&now()-lastPongAt>12000&&!reconnecting){
     console.log('[Antena] sem resposta do anfitrião há mais de 12s, forçando reconexão');
     try{ guestConn.close(); }catch(_){}
@@ -741,6 +776,25 @@ function updatePlayerReadout(){
   if(!playerReady){ el.textContent=mountToken?'sem resposta':'aguardando a sala'; return; }
   let st; try{ st=player.getPlayerState(); }catch(_){ el.textContent='quebrado'; return; }
   el.textContent=(ESTADOS[st]||st)+(videoId?'':' · sem vídeo');
+}
+
+/* Se a página alargar além da tela por qualquer motivo, aponta o elemento
+   exato responsável em vez de deixar isso invisível — assim dá pra
+   descrever ou printar o problema com precisão, sem precisar do DevTools. */
+function checkOverflowCulprit(){
+  const vw=window.innerWidth;
+  if(document.body.scrollWidth<=vw+1) return;
+  let worst=null, worstRight=vw;
+  document.querySelectorAll('body *').forEach(el=>{
+    const r=el.getBoundingClientRect();
+    if(r.width>0 && r.right>worstRight){ worstRight=r.right; worst=el; }
+  });
+  if(!worst) return;
+  const cls=(worst.className&&worst.className.toString)?worst.className.toString().trim().split(/\s+/)[0]:'';
+  const desc=(worst.id?'#'+worst.id:'')+(cls?'.'+cls:'')||worst.tagName.toLowerCase();
+  const msg='A tela alargou por causa de "'+desc+'" ('+Math.round(worstRight-vw)+'px além da borda).';
+  console.log('[Antena] elemento estourando a largura:',worst,'sobra:',Math.round(worstRight-vw)+'px');
+  $('#overflowDiag').textContent=msg;
 }
 
 /* O navegador só deixa começar a tocar depois de um toque da pessoa. Quando
@@ -1136,6 +1190,8 @@ function joinRoom(raw){
 function leaveRoom(){
   clearTimeout(reconnectTimer); reconnecting=false; reconnectAttempts=0; hostReconnectAttempts=0;
   hideConnBanner();
+  try{ playerResizeObserver&&playerResizeObserver.disconnect(); }catch(_){}
+  playerResizeObserver=null;
   peers.forEach(p=>{ try{p.conn.close();}catch(_){} });
   peers.clear();
   try{ hostPeer&&hostPeer.destroy(); }catch(_){}
