@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#08110F">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Ponte — envie arquivos direto entre vocês</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=DM+Mono:wght@400;500&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1/dist/peerjs.min.js"></script>
+<style>
+:root{
+  --ink:#08110F; --panel:#0E1C1A; --panel-2:#132724; --line:#1E3833;
+  --fog:#8FA9A3; --dim:#4C6B65; --paper:#E9F2EF;
+  --signal:#FFB020; --signal-dim:#7A5613; --alert:#FF6B4A; --ok:#57D2A3; --r:4px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;max-width:100%;overflow-x:hidden}
+body{
+  background:var(--ink); color:var(--paper);
+  font-family:"Inter Tight",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:15px; line-height:1.5; min-height:100vh;
+  background-image:repeating-linear-gradient(90deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+h1,h2,h3,.disp{font-family:"Archivo",system-ui,sans-serif;letter-spacing:-.02em;margin:0}
+.mono,code,textarea,input,.tag{font-family:"DM Mono",ui-monospace,Menlo,Consolas,monospace}
+
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px 60px}
+header.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px 0 14px;border-bottom:1px solid var(--line);margin-bottom:20px}
+.brand{display:flex;align-items:center;gap:10px;flex-wrap:wrap;row-gap:8px}
+.brand b{font-family:"Archivo";font-weight:800;font-size:20px;text-transform:uppercase;letter-spacing:.14em}
+.brand span{color:var(--dim);font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-family:"DM Mono"}
+.top .spacer{flex:1}
+@media (max-width:480px){
+  .brand span{display:none}
+  header.top{gap:10px}
+  .brand{gap:8px}
+  .brand b{font-size:17px}
+  #leaveBtn{padding:8px 10px}
+  .status{letter-spacing:.03em;gap:7px}
+}
+
+.meter{display:flex;align-items:flex-end;gap:2px;height:16px}
+.meter i{width:3px;background:var(--dim);border-radius:1px;display:block}
+.meter i:nth-child(1){height:5px}.meter i:nth-child(2){height:8px}.meter i:nth-child(3){height:11px}
+.meter i:nth-child(4){height:14px}.meter i:nth-child(5){height:17px}
+.meter.on i{background:var(--signal)}
+.meter.on i:nth-child(5){animation:blip 1.6s ease-in-out infinite}
+.meter.on.q-good i{background:var(--ok)}
+.meter.on.q-bad i{background:var(--alert)}
+@keyframes blip{0%,100%{opacity:1}50%{opacity:.25}}
+.status{display:flex;align-items:center;gap:9px;font-family:"DM Mono";font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--fog)}
+
+/* ---------- setup ---------- */
+.setup{max-width:520px;margin:0 auto;padding-top:10px}
+.lede{font-size:30px;font-weight:800;line-height:1.06;text-transform:uppercase;letter-spacing:-.03em}
+.lede em{font-style:normal;color:var(--signal)}
+.sub{color:var(--fog);margin:12px 0 26px;max-width:52ch;font-size:14px}
+.field{display:block;margin-bottom:20px}
+.field label{display:block;font-family:"DM Mono";font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:7px}
+input[type=text],textarea{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--paper);padding:12px;border-radius:var(--r);font-size:16px;outline:none}
+input[type=text]:focus,textarea:focus{border-color:var(--signal);box-shadow:0 0 0 1px var(--signal-dim)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+
+button{font-family:"Archivo";font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase;background:var(--panel-2);color:var(--paper);border:1px solid var(--line);padding:12px 16px;border-radius:var(--r);cursor:pointer;transition:background .15s,border-color .15s,color .15s;min-height:46px;white-space:nowrap;flex-shrink:0}
+button:hover{border-color:var(--dim)}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+button.key{background:var(--signal);color:#1A1200;border-color:var(--signal)}
+button.key:hover{background:#FFC44D}
+button.ghost{background:transparent}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.sm{padding:8px 12px;font-size:11px;min-height:38px}
+button.tiny,a.tiny{padding:6px 9px;font-size:10px;letter-spacing:.06em;min-height:30px;display:inline-flex;align-items:center;text-decoration:none}
+button.big{width:100%;padding:15px 16px;font-size:14px;min-height:52px}
+a.tiny{font-family:"Archivo";font-weight:600;text-transform:uppercase;border-radius:var(--r);border:1px solid var(--line)}
+a.tiny.key{background:var(--signal);color:#1A1200;border-color:var(--signal)}
+
+.segTabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px;margin-bottom:16px}
+.segTab{flex:1;background:transparent;border:none;color:var(--dim);padding:12px 8px;font-size:12px;min-height:44px;border-radius:4px}
+.segTab.active{background:var(--panel-2);color:var(--signal)}
+.segPane p{color:var(--fog);font-size:13px;margin:0 0 14px;line-height:1.45}
+
+/* ---------- room ---------- */
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:22px;align-items:start}
+
+.drop{background:var(--panel);border:2px dashed var(--line);border-radius:8px;padding:40px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--signal);background:rgba(255,176,32,.05)}
+.drop b{display:block;font-family:"Archivo";font-size:16px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+.drop span{color:var(--dim);font-size:12.5px}
+.drop input{display:none}
+
+.warn{background:rgba(255,176,32,.08);border:1px solid var(--signal-dim);color:var(--signal);padding:10px 12px;border-radius:var(--r);font-size:13px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+.codeChip{display:flex;align-items:center;gap:8px;margin-top:12px;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);font-family:"DM Mono";font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.codeChip b{color:var(--signal);font-size:14px;letter-spacing:.22em}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:15px;margin-bottom:16px}
+.panel h3{font-size:11px;font-family:"DM Mono";letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:400}
+.hint{color:var(--dim);font-size:12.5px;line-height:1.45;margin:8px 0 0}
+.err{color:var(--alert);font-size:12.5px;margin-top:8px;min-height:1em}
+
+.codeboxes{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin:4px 0 14px}
+.codeboxes .digit{aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--line);border-radius:var(--r);font-family:"DM Mono";font-size:22px;font-weight:500;color:var(--signal)}
+
+ul.peers{list-style:none;margin:0;padding:0}
+ul.peers li{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+ul.peers li:last-child{border-bottom:none}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--dim);flex:none}
+.dot.on{background:var(--ok)}
+.dot.wait{background:var(--signal)}
+.tag{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-left:auto}
+
+/* file list */
+.fitem{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);align-items:center}
+.fitem:last-child{border-bottom:none}
+.fthumb{width:44px;height:44px;border-radius:6px;background:var(--panel-2);display:flex;align-items:center;justify-content:center;flex:none;font-family:"DM Mono";font-size:10px;color:var(--dim);text-transform:uppercase;overflow:hidden}
+.fthumb img{width:100%;height:100%;object-fit:cover}
+.finfo{flex:1;min-width:0}
+.fname{display:block;font-size:13px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;overflow-wrap:break-word}
+.fmeta{display:block;font-family:"DM Mono";font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin-top:3px}
+.fbar{height:3px;background:var(--panel-2);border-radius:2px;margin-top:6px;overflow:hidden}
+.fbar-fill{height:100%;background:var(--signal);border-radius:2px;transition:width .2s;width:0}
+.fbar-fill.done{background:var(--ok)}
+.fbar-fill.fail{background:var(--alert)}
+.facts{flex:none}
+.ftag{font-family:"DM Mono";font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.ftag.fail{color:var(--alert)}
+.blank{color:var(--dim);font-size:12.5px;padding:6px 0}
+
+#chatlog{height:min(46vh,320px);overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:10px;padding-right:4px}
+.msg{font-size:13.5px;line-height:1.4}
+.msg b{color:var(--signal);font-weight:600;font-family:"Archivo";font-size:12px;letter-spacing:.04em;text-transform:uppercase;margin-right:6px}
+.msg.sys{color:var(--dim);font-family:"DM Mono";font-size:11.5px;letter-spacing:.03em}
+
+.readout{display:flex;gap:16px;flex-wrap:wrap;font-family:"DM Mono";font-size:11px;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:10px}
+.readout b{color:var(--paper);font-weight:500}
+.hide{display:none !important}
+footer{color:var(--dim);font-size:11.5px;margin-top:30px;border-top:1px solid var(--line);padding-top:16px;font-family:"DM Mono";letter-spacing:.03em}
+
+.tabbar{display:flex;gap:4px;background:var(--ink);border:1px solid var(--line);border-radius:var(--r);padding:4px;margin-bottom:12px;position:sticky;top:8px;z-index:10}
+.tab{flex:1;background:transparent;border:none;color:var(--dim);padding:9px 6px;font-size:11px;min-height:38px;border-radius:3px;display:flex;align-items:center;justify-content:center;gap:6px}
+.tab.active{background:var(--panel-2);color:var(--signal)}
+.badge{background:var(--signal);color:#1A1200;font-family:"DM Mono";font-size:9px;font-weight:700;border-radius:8px;padding:1px 6px;line-height:1.5}
+.badge:empty{display:none}
+@media (min-width:900px){ .tabbar{display:none;position:static} .tabpanel{display:block !important} }
+
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(14px);background:var(--ok);color:#04241A;font-family:"Archivo";font-weight:700;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;padding:12px 20px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:80;box-shadow:0 10px 26px rgba(0,0,0,.4);max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (max-width:900px){ .grid{grid-template-columns:1fr} .lede{font-size:25px} }
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="brand">
+    <b>Ponte</b><span>entrega direta</span>
+    <button class="sm ghost hide" id="leaveBtn" aria-label="Sair da sala">Sair da sala</button>
+  </div>
+  <div class="spacer"></div>
+  <div class="status">
+    <div class="meter" id="meter"><i></i><i></i><i></i><i></i><i></i></div>
+    <span id="statusTxt">fora do ar</span>
+  </div>
+</header>
+
+<!-- ================= ENTRADA ================= -->
+<section id="setup" class="setup">
+  <h1 class="lede">Envie arquivos no instante.<br><em>Sem nuvem guardando nada.</em></h1>
+  <p class="sub">Os dois navegadores se ligam direto, um no outro, por WebRTC. Um código curto encontra o caminho entre vocês — depois disso, os arquivos viajam de máquina para máquina, em pedaços, sem passar por nenhum servidor nosso.</p>
+
+  <div class="field">
+    <label for="nome">Seu nome na sala</label>
+    <input type="text" id="nome" placeholder="Como os outros vão te ver" maxlength="20" autocomplete="off">
+  </div>
+
+  <div class="segTabs" role="tablist">
+    <button class="segTab active" data-seg="criar" role="tab" aria-selected="true">Criar sala</button>
+    <button class="segTab" data-seg="entrar" role="tab" aria-selected="false">Entrar com código</button>
+  </div>
+
+  <div class="segPane" id="seg-criar">
+    <p>Você vira o anfitrião. Gera um código e manda para os amigos — cada um entra quando quiser, sem mais nada da sua parte.</p>
+    <button class="key big" id="btnHost">Criar sala</button>
+    <p class="err" id="hostSetupErr"></p>
+  </div>
+
+  <div class="segPane hide" id="seg-entrar">
+    <p>Peça os 6 números para quem criou a sala.</p>
+    <input type="text" id="codeIn" class="codeInputBig" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" autocomplete="off" style="font-family:'DM Mono';font-size:32px;letter-spacing:.5em;text-align:center;padding:14px 0 14px 10px;background:var(--panel-2);margin-bottom:12px">
+    <button class="key big" id="btnJoin">Entrar na sala</button>
+    <p class="err" id="joinErr"></p>
+  </div>
+</section>
+
+<!-- ================= SALA ================= -->
+<section id="app" class="hide">
+  <div class="warn hide" id="connBanner">
+    <span id="connBannerTxt">Reconectando…</span>
+    <button class="tiny ghost hide" id="btnRetryNow">Tentar agora</button>
+  </div>
+  <div class="grid">
+    <div>
+      <div class="drop" id="dropZone">
+        <b>Solte arquivos aqui</b>
+        <span id="dropSub">ou toque para escolher — vão para todo mundo na sala</span>
+        <input type="file" id="fileInput" multiple>
+      </div>
+
+      <div class="codeChip hide" id="codeChip">
+        <span>código da sala</span><b id="codeChipTxt">------</b>
+        <button class="tiny ghost" id="btnChipCopy" style="margin-left:auto">Copiar</button>
+      </div>
+
+      <p class="err" id="appErr"></p>
+
+      <details class="diag" style="margin-top:8px;border-top:1px solid var(--line);padding-top:4px">
+        <summary style="cursor:pointer;font-family:'DM Mono';font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);list-style:none;padding:9px 0;display:flex;align-items:center;gap:7px;min-height:30px">Diagnóstico da ligação</summary>
+        <div class="readout">
+          <span>papel <b id="roRole">—</b></span>
+          <span>conectados <b id="roPeers">0</b></span>
+          <span>ida-e-volta <b id="roRtt">—</b></span>
+        </div>
+      </details>
+    </div>
+
+    <div>
+      <div class="tabbar" role="tablist">
+        <button class="tab active" data-tab="arquivos" role="tab" aria-selected="true">Arquivos <span class="badge" id="tabArquivosBadge"></span></button>
+        <button class="tab" data-tab="sala" role="tab" aria-selected="false">Sala</button>
+        <button class="tab" data-tab="chat" role="tab" aria-selected="false">Conversa <span class="badge hide" id="tabChatBadge"></span></button>
+      </div>
+
+      <div class="panel tabpanel" id="panel-arquivos">
+        <h3>Arquivos <span class="tag" id="fCount">0 arquivos</span></h3>
+        <div id="fileList"></div>
+        <p class="blank" id="fileBlank">Nenhum arquivo ainda. Solte um arquivo na área ao lado, ou toque nela para escolher.</p>
+      </div>
+
+      <div class="panel tabpanel hide" id="panel-sala">
+        <h3>Código da sala</h3>
+        <div class="codeboxes" id="codeboxes"></div>
+        <div class="row">
+          <button class="sm" id="btnCopyCode">Copiar código</button>
+          <button class="sm ghost hide" id="btnShareCode">Compartilhar</button>
+        </div>
+        <p class="hint">Qualquer pessoa com este código entra na sala sozinha. Vale mandar para mais amigos, não só quem criou.</p>
+        <h3 style="margin-top:18px">Na sala</h3>
+        <ul class="peers" id="peerList"></ul>
+      </div>
+
+      <div class="panel tabpanel hide" id="panel-chat">
+        <h3>Conversa</h3>
+        <div id="chatlog"></div>
+        <div class="row">
+          <input type="text" id="chatIn" placeholder="Escreva algo" maxlength="300" style="flex:1;min-width:120px" autocomplete="off">
+          <button id="btnSend" class="sm">Enviar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Os arquivos viajam direto entre os navegadores, em pedaços — nenhum site nosso vê ou guarda esse conteúdo. Só a apresentação inicial passa pela nuvem pública do PeerJS, que sabe apenas que dois códigos existem, nunca o que vocês trocam. Se todo mundo fechar a aba, a sala deixa de existir — e os arquivos que ainda não terminaram de chegar, também.
+    <br><span style="opacity:.5">build v1</span>
+  </footer>
+</section>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+   Ponte — envio de arquivos ponto a ponto.
+   Mesmo chassi de rede do Antena: PeerJS, código curto de 6
+   dígitos, estrela com o anfitrião no centro, reconexão
+   automática, medidor de qualidade por RTT real. O anfitrião
+   também repassa arquivos entre convidados, já que só ele fala
+   com todo mundo.
+   ============================================================ */
+
+const $ = s => document.querySelector(s);
+const ROOM_PREFIX='ponte9-';
+const SITE_URL=location.origin+location.pathname;
+const CHUNK_SIZE=16*1024;
+const BUFFER_HIGH=1024*1024;
+const BUFFER_LOW=256*1024;
+
+let role=null, myName='', hostName='';
+const peers=new Map();
+let hostPeer=null, guestPeer=null, guestConn=null, roomCode=null;
+let appOpen=false, unreadChat=0, toastT=null;
+let reconnecting=false, reconnectAttempts=0, reconnectTimer=null, hostReconnectAttempts=0;
+let lastPongAt=0, pingLoopActive=false, myRtt=null, lastHostPingAt=0;
+let transfers={};
+
+const rand=()=>Math.random().toString(36).slice(2,10);
+const now=()=>Date.now();
+
+/* ---------- utilidades ---------- */
+function fmtBytes(n){
+  if(n<1024) return n+' B';
+  if(n<1024*1024) return (n/1024).toFixed(1)+' KB';
+  if(n<1024*1024*1024) return (n/1024/1024).toFixed(1)+' MB';
+  return (n/1024/1024/1024).toFixed(2)+' GB';
+}
+function extIcon(name){
+  const ext=(name.split('.').pop()||'?').slice(0,4);
+  return ext.toUpperCase();
+}
+function setStatus(txt,live){
+  $('#statusTxt').textContent=txt;
+  $('#meter').classList.toggle('on',!!live);
+  if(!live) $('#meter').classList.remove('q-good','q-bad');
+}
+function updateMeterQuality(){
+  const el=$('#meter');
+  el.classList.remove('q-good','q-bad');
+  if(!el.classList.contains('on')||myRtt==null) return;
+  if(myRtt<150) el.classList.add('q-good');
+  else if(myRtt>400) el.classList.add('q-bad');
+}
+function showToast(text){
+  const el=$('#toast'); el.textContent=text; el.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),2600);
+}
+function showConnBanner(text,showRetry){
+  $('#connBannerTxt').textContent=text;
+  $('#connBanner').classList.remove('hide');
+  $('#btnRetryNow').classList.toggle('hide',!showRetry);
+}
+function hideConnBanner(){ $('#connBanner').classList.add('hide'); }
+function log(text,who){
+  const d=document.createElement('div');
+  d.className='msg'+(who?'':' sys');
+  if(who){const b=document.createElement('b');b.textContent=who;d.appendChild(b);d.appendChild(document.createTextNode(text));}
+  else d.textContent=text;
+  const box=$('#chatlog'); box.appendChild(d); box.scrollTop=box.scrollHeight;
+  const activeTab=document.querySelector('.tab.active');
+  if(appOpen&&activeTab&&activeTab.dataset.tab!=='chat'){
+    unreadChat++; const b=$('#tabChatBadge'); b.textContent=unreadChat; b.classList.remove('hide');
+  }
+}
+function renderPeers(){
+  const ul=$('#peerList'); ul.innerHTML='';
+  const add=(name,state,tag)=>{
+    const li=document.createElement('li');
+    const dot=document.createElement('span'); dot.className='dot '+state; li.appendChild(dot);
+    const n=document.createElement('span'); n.textContent=name; li.appendChild(n);
+    if(tag){const t=document.createElement('span');t.className='tag';t.textContent=tag;li.appendChild(t);}
+    ul.appendChild(li);
+  };
+  if(role==='host'){
+    add(myName+' (você)','on','anfitrião');
+    let n=0; peers.forEach(p=>{ if(p.on)n++; add(p.name||'convidado…',p.on?'on':'wait',p.on?'':'aguardando'); });
+    $('#roPeers').textContent=n;
+  }else{
+    const on=guestConn&&guestConn.open;
+    add(hostName||'anfitrião',on?'on':'wait','anfitrião');
+    add(myName+' (você)','on','');
+    (window.__roster||[]).forEach(nm=>{ if(nm!==myName&&nm!==hostName) add(nm,'on',''); });
+    $('#roPeers').textContent=on?(window.__roster||[]).length-1:0;
+  }
+}
+
+/* ---------- abas da tela de entrada ---------- */
+document.querySelectorAll('.segTab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.segTab').forEach(b=>{
+      const active=b===btn;
+      b.classList.toggle('active',active); b.setAttribute('aria-selected',active?'true':'false');
+    });
+    $('#seg-criar').classList.toggle('hide',btn.dataset.seg!=='criar');
+    $('#seg-entrar').classList.toggle('hide',btn.dataset.seg!=='entrar');
+    if(btn.dataset.seg==='entrar') $('#codeIn').focus();
+  });
+});
+(function prefillFromLink(){
+  try{
+    const params=new URLSearchParams(location.search);
+    const code=(params.get('code')||'').replace(/\D/g,'').slice(0,6);
+    if(code.length>=4){ $('#codeIn').value=code; document.querySelector('.segTab[data-seg="entrar"]').click(); }
+    if(params.toString()) history.replaceState(null,'',location.pathname+location.hash);
+  }catch(_){}
+})();
+
+/* ---------- abas da sala ---------- */
+document.querySelectorAll('.tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(b=>{
+      const active=b===btn;
+      b.classList.toggle('active',active); b.setAttribute('aria-selected',active?'true':'false');
+    });
+    document.querySelectorAll('.tabpanel').forEach(p=>p.classList.toggle('hide',p.id!=='panel-'+btn.dataset.tab));
+    if(btn.dataset.tab==='chat'){
+      unreadChat=0; const b=$('#tabChatBadge'); b.classList.add('hide'); b.textContent='';
+      $('#chatlog').scrollTop=$('#chatlog').scrollHeight;
+    }
+  });
+});
+
+/* ---------- copiar / compartilhar código ---------- */
+function fallbackCopy(text){
+  const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try{document.execCommand('copy');}catch(_){}
+  document.body.removeChild(ta);
+}
+function copyCode(btn){
+  const text=roomCode||'';
+  const original=btn.textContent;
+  const done=()=>{ btn.textContent='Copiado'; setTimeout(()=>btn.textContent=original,1400); };
+  if(navigator.clipboard) navigator.clipboard.writeText(text).then(done).catch(()=>{fallbackCopy(text);done();});
+  else { fallbackCopy(text); done(); }
+}
+$('#btnCopyCode').addEventListener('click',()=>copyCode($('#btnCopyCode')));
+$('#btnChipCopy').addEventListener('click',()=>copyCode($('#btnChipCopy')));
+if(navigator.share){
+  $('#btnShareCode').classList.remove('hide');
+  $('#btnShareCode').addEventListener('click',()=>{
+    navigator.share({ title:'Ponte', text:'Entra na minha sala da Ponte — o código é '+roomCode, url:SITE_URL+'?code='+roomCode }).catch(()=>{});
+  });
+}
+function renderCode(code){
+  const box=$('#codeboxes'); box.innerHTML='';
+  code.split('').forEach(d=>{ const s=document.createElement('span'); s.className='digit'; s.textContent=d; box.appendChild(s); });
+  $('#codeChip').classList.remove('hide');
+  $('#codeChipTxt').textContent=code;
+}
+
+/* ============================================================
+   Transferência de arquivos
+   ============================================================ */
+function filePct(t){
+  if(t.failed) return t._lastPct||0;
+  if(t.done) return 100;
+  const done = t.dir==='out' ? (t.sent||0) : (t.received||0);
+  return t.total ? Math.min(100,Math.round(done/t.total*100)) : 0;
+}
+function fileMetaText(t){
+  const size=fmtBytes(t.size);
+  if(t.failed) return size+' · de '+t.by+' · falhou';
+  if(t.done) return size+' · de '+t.by+' · completo';
+  return size+' · de '+t.by+' · '+(t.dir==='out'?'enviando ':'recebendo ')+filePct(t)+'%';
+}
+function bumpProgress(fileId){
+  const t=transfers[fileId]; if(!t) return;
+  t._lastPct=filePct(t);
+  const fill=document.getElementById('ffill-'+fileId);
+  if(fill) fill.style.width=t._lastPct+'%';
+  const meta=document.getElementById('fmeta-'+fileId);
+  if(meta) meta.textContent=fileMetaText(t);
+}
+function renderFiles(){
+  const list=$('#fileList'); list.innerHTML='';
+  const ids=Object.keys(transfers).sort((a,b)=>(transfers[b].startedAt||0)-(transfers[a].startedAt||0));
+  ids.forEach(id=>{
+    const t=transfers[id];
+    const row=document.createElement('div'); row.className='fitem'; row.id='frow-'+id;
+    const thumb=document.createElement('div'); thumb.className='fthumb';
+    if(t.mime&&t.mime.startsWith('image/')&&t.blobUrl){
+      const img=document.createElement('img'); img.src=t.blobUrl; img.alt=''; thumb.appendChild(img);
+    }else{
+      thumb.textContent=extIcon(t.name);
+    }
+    const info=document.createElement('div'); info.className='finfo';
+    const name=document.createElement('span'); name.className='fname'; name.textContent=t.name;
+    const meta=document.createElement('span'); meta.className='fmeta'; meta.id='fmeta-'+id; meta.textContent=fileMetaText(t);
+    const bar=document.createElement('div'); bar.className='fbar';
+    const fill=document.createElement('div'); fill.className='fbar-fill'+(t.done?' done':'')+(t.failed?' fail':''); fill.id='ffill-'+id;
+    fill.style.width=filePct(t)+'%';
+    bar.appendChild(fill);
+    info.appendChild(name); info.appendChild(meta); info.appendChild(bar);
+    const acts=document.createElement('div'); acts.className='facts';
+    if(t.done&&t.blobUrl){
+      const a=document.createElement('a'); a.className='tiny key'; a.href=t.blobUrl; a.download=t.name; a.textContent='Baixar';
+      acts.appendChild(a);
+    }else if(t.failed){
+      const s=document.createElement('span'); s.className='ftag fail'; s.textContent='falhou'; acts.appendChild(s);
+    }else{
+      const s=document.createElement('span'); s.className='ftag'; s.textContent=t.dir==='out'?'enviando':'recebendo'; acts.appendChild(s);
+    }
+    row.appendChild(thumb); row.appendChild(info); row.appendChild(acts);
+    list.appendChild(row);
+  });
+  $('#fileBlank').classList.toggle('hide',ids.length>0);
+  $('#fCount').textContent=ids.length+(ids.length===1?' arquivo':' arquivos');
+  const pending=ids.filter(id=>!transfers[id].done&&!transfers[id].failed).length;
+  const badge=$('#tabArquivosBadge'); badge.textContent=pending||'';
+}
+
+function waitBufferedLow(conn){
+  return new Promise(resolve=>{
+    const dc=conn.dataChannel;
+    if(!dc||dc.bufferedAmount<BUFFER_HIGH){ resolve(); return; }
+    let done=false;
+    const finish=()=>{ if(done) return; done=true; try{dc.removeEventListener('bufferedamountlow',finish);}catch(_){} resolve(); };
+    try{ dc.bufferedAmountLowThreshold=BUFFER_LOW; dc.addEventListener('bufferedamountlow',finish); }catch(_){}
+    setTimeout(finish,4000);
+  });
+}
+
+async function sendFile(file){
+  if(!file||!file.size){ return; }
+  const fileId=rand()+rand();
+  const mime=file.type||'application/octet-stream';
+  const total=Math.max(1,Math.ceil(file.size/CHUNK_SIZE));
+  const targets = role==='host'
+    ? [...peers.values()].filter(p=>p.on).map(p=>p.conn)
+    : (guestConn&&guestConn.open?[guestConn]:[]);
+  transfers[fileId]={name:file.name.slice(0,180),size:file.size,mime,by:myName,dir:'out',sent:0,total,done:false,failed:!targets.length,startedAt:now()};
+  renderFiles();
+  if(!targets.length){ $('#appErr').textContent='Não tem ninguém na sala pra receber ainda.'; return; }
+  const meta={t:'file-start',fileId,name:file.name.slice(0,180),size:file.size,mime,by:myName,total};
+  let sentUnits=0; const totalUnits=total*targets.length;
+  await Promise.all(targets.map(async conn=>{
+    send(conn,meta);
+    let ok=true;
+    for(let i=0;i<total;i++){
+      if(!conn.open){ ok=false; break; }
+      const slice=file.slice(i*CHUNK_SIZE,Math.min(file.size,(i+1)*CHUNK_SIZE));
+      let buf; try{ buf=await slice.arrayBuffer(); }catch(_){ ok=false; break; }
+      await waitBufferedLow(conn);
+      if(!conn.open){ ok=false; break; }
+      send(conn,{t:'file-chunk',fileId,index:i,data:buf});
+      sentUnits++;
+      transfers[fileId].sent=Math.round(sentUnits/totalUnits*total);
+      bumpProgress(fileId);
+    }
+    send(conn, ok?{t:'file-end',fileId}:{t:'file-cancel',fileId});
+  }));
+  transfers[fileId].done=true; transfers[fileId].sent=total;
+  renderFiles();
+  showToast('Arquivo enviado!');
+}
+
+function handleFileStart(m,quem,sourceConn){
+  if(!m.fileId||transfers[m.fileId]) { if(role==='host'&&sourceConn) broadcast(m,sourceConn.peer); return; }
+  transfers[m.fileId]={
+    name:(m.name||'arquivo').slice(0,180), size:m.size||0, mime:m.mime||'application/octet-stream',
+    by:m.by||quem, dir:'in', total:Math.max(1,m.total||1), received:0, chunks:new Array(Math.max(1,m.total||1)),
+    done:false, failed:false, startedAt:now(), lastChunkAt:now()
+  };
+  renderFiles();
+  log('está enviando "'+transfers[m.fileId].name+'"',m.by||quem);
+  if(role==='host'&&sourceConn) broadcast(m,sourceConn.peer);
+}
+function handleFileChunk(m,sourceConn){
+  const t=transfers[m.fileId];
+  if(!t||t.done||t.failed){ if(role==='host'&&sourceConn) broadcast(m,sourceConn.peer); return; }
+  if(m.index>=0&&m.index<t.chunks.length&&!t.chunks[m.index]){ t.chunks[m.index]=m.data; t.received++; }
+  t.lastChunkAt=now();
+  bumpProgress(m.fileId);
+  if(role==='host'&&sourceConn) broadcast(m,sourceConn.peer);
+}
+function handleFileEnd(m,sourceConn){
+  const t=transfers[m.fileId];
+  if(t&&!t.failed&&!t.done){
+    try{
+      const blob=new Blob(t.chunks.filter(Boolean),{type:t.mime});
+      t.blobUrl=URL.createObjectURL(blob);
+      t.done=true;
+    }catch(_){ t.failed=true; }
+    renderFiles();
+  }
+  if(role==='host'&&sourceConn) broadcast(m,sourceConn.peer);
+}
+function handleFileCancel(m,sourceConn){
+  const t=transfers[m.fileId];
+  if(t&&!t.done){ t.failed=true; renderFiles(); }
+  if(role==='host'&&sourceConn) broadcast(m,sourceConn.peer);
+}
+function purgeStaleTransfers(){
+  const cutoff=now()-20000;
+  Object.keys(transfers).forEach(id=>{
+    const t=transfers[id];
+    if(t.dir==='in'&&!t.done&&!t.failed&&(t.lastChunkAt||t.startedAt||0)<cutoff){
+      t.failed=true; renderFiles();
+    }
+  });
+}
+
+/* ---------- entrada de arquivos (arrastar ou escolher) ---------- */
+const dropZone=$('#dropZone'), fileInput=$('#fileInput');
+dropZone.addEventListener('click',()=>fileInput.click());
+fileInput.addEventListener('change',()=>{
+  [...fileInput.files].forEach(f=>sendFile(f));
+  fileInput.value='';
+});
+['dragenter','dragover'].forEach(ev=>dropZone.addEventListener(ev,e=>{ e.preventDefault(); dropZone.classList.add('over'); }));
+['dragleave','drop'].forEach(ev=>dropZone.addEventListener(ev,e=>{ e.preventDefault(); dropZone.classList.remove('over'); }));
+dropZone.addEventListener('drop',e=>{
+  const files=[...(e.dataTransfer&&e.dataTransfer.files||[])];
+  files.forEach(f=>sendFile(f));
+});
+
+/* ============================================================
+   Rede: PeerJS — mesmo esquema do Antena (código curto, estrela,
+   reconexão, qualidade por RTT).
+   ============================================================ */
+function send(conn,obj){ try{ if(conn&&conn.open) conn.send(obj); }catch(_){} }
+function broadcast(obj,skip){ peers.forEach((p,id)=>{ if(id!==skip&&p.on) send(p.conn,obj); }); }
+function roster(){ return [myName].concat([...peers.values()].filter(p=>p.on).map(p=>p.name||'convidado')); }
+function pushRoster(){ broadcast({t:'roster',list:roster(),host:myName}); }
+
+function updateLive(){
+  if(role==='host'){
+    const n=[...peers.values()].filter(p=>p.on).length;
+    setStatus(n?'no ar':'sala vazia',n>0);
+  }else{
+    const on=guestConn&&guestConn.open;
+    setStatus(on?'no ar':'ligação caiu',on);
+  }
+  renderPeers();
+}
+
+function peerErrMsg(err){
+  const t=err&&err.type||'';
+  const msgs={
+    'peer-unavailable':'Não achei uma sala com esse código. Confira e tente de novo.',
+    'network':'Sem conexão com o sinalizador. Confira sua internet.',
+    'server-error':'O sinalizador está indisponível agora. Tente de novo em instantes.',
+    'socket-error':'A conexão com o sinalizador caiu.',
+    'socket-closed':'A conexão com o sinalizador caiu.',
+    'browser-incompatible':'Este navegador não suporta o WebRTC necessário.',
+    'disconnected':'Perdeu a conexão com o sinalizador.',
+    'webrtc':'O navegador recusou abrir o canal. Tente de novo.'
+  };
+  return msgs[t]||('Erro de conexão'+(t?' ('+t+')':'')+'.');
+}
+
+function scheduleGuestReconnect(){
+  if(role!=='guest'||!appOpen||!roomCode||reconnecting) return;
+  reconnecting=true;
+  const delay=reconnectAttempts===0?300:Math.min(1000*Math.pow(1.6,reconnectAttempts),8000);
+  showConnBanner('Reconectando à sala…');
+  setStatus('reconectando…',false);
+  reconnectTimer=setTimeout(attemptGuestReconnect,delay);
+}
+function attemptGuestReconnect(){
+  reconnecting=false;
+  if(role!=='guest'||!appOpen||!roomCode) return;
+  try{ guestPeer&&guestPeer.destroy(); }catch(_){}
+  const p=new Peer({debug:1});
+  p.on('open',()=>{
+    guestPeer=p;
+    const conn=p.connect(ROOM_PREFIX+roomCode);
+    conn.on('open',()=>{ wireGuestChannel(conn); });
+    conn.on('error',err=>{ console.log('[Ponte] falha ao reconectar',err); reconnectAttempts++; retryOrGiveUp(); });
+  });
+  p.on('error',err=>{ console.log('[Ponte] falha ao reconectar',err); reconnectAttempts++; retryOrGiveUp(); });
+}
+function retryOrGiveUp(){
+  if(reconnectAttempts>12){ showConnBanner('Não consegui voltar para a sala. Confira sua internet.',true); setStatus('ligação caiu',false); }
+  else scheduleGuestReconnect();
+}
+$('#btnRetryNow').addEventListener('click',()=>{
+  hideConnBanner();
+  if(role==='host'&&hostPeer){ hostReconnectAttempts=0; showConnBanner('Reconectando ao sinalizador…'); try{hostPeer.reconnect();}catch(_){} }
+  else if(role==='guest'){ reconnectAttempts=0; attemptGuestReconnect(); }
+});
+window.addEventListener('online',()=>{
+  if(role==='guest'&&appOpen&&(!guestConn||!guestConn.open)){ reconnectAttempts=0; scheduleGuestReconnect(); }
+  else if(role==='host'&&appOpen&&hostPeer&&hostPeer.disconnected){ hostReconnectAttempts=0; try{hostPeer.reconnect();}catch(_){} }
+});
+if(navigator.connection&&navigator.connection.addEventListener){
+  navigator.connection.addEventListener('change',()=>{
+    if(role==='guest'&&appOpen&&(!guestConn||!guestConn.open)){ reconnectAttempts=0; scheduleGuestReconnect(); }
+  });
+}
+
+function purgeStalePeers(){
+  peers.forEach((p,id)=>{
+    if(p.on&&p.lastSeen&&now()-p.lastSeen>25000){ try{ p.conn.close(); }catch(_){} }
+    if(!p.on&&p.createdAt&&now()-p.createdAt>15000){
+      try{ p.conn.close(); }catch(_){}
+      peers.delete(id); updateLive(); pushRoster();
+    }
+  });
+}
+
+function wireHostChannel(id,conn){
+  const p=peers.get(id); p.conn=conn;
+  conn.on('open',()=>{
+    p.on=true; updateLive(); pushRoster();
+    log((p.name||'Alguém')+' entrou na sala');
+    broadcast({t:'chat',name:null,text:(p.name||'Alguém')+' entrou na sala'},id);
+    send(conn,{t:'roster',list:roster(),host:myName});
+    showToast('Conectado com sucesso!');
+  });
+  conn.on('close',()=>{ const nome=p.name; peers.delete(id); updateLive(); pushRoster(); log((nome||'Alguém')+' saiu'); });
+  conn.on('error',err=>{ peers.delete(id); updateLive(); pushRoster(); console.log('[Ponte] erro na ligação com convidado',err); });
+  conn.on('data',m=>{
+    if(!m||typeof m!=='object') return;
+    p.lastSeen=now();
+    const quem=p.name||'convidado';
+    if(m.t==='ping'){ send(conn,{t:'pong',t0:m.t0,hts:now()}); return; }
+    if(m.t==='pong'){ p.rtt=now()-m.t0; return; }
+    if(m.t==='hello'){ p.name=m.name; updateLive(); pushRoster(); return; }
+    if(m.t==='chat'){ log(m.text,quem); broadcast({t:'chat',name:quem,text:m.text},id); return; }
+    if(m.t==='file-start'){ handleFileStart(m,quem,conn); return; }
+    if(m.t==='file-chunk'){ handleFileChunk(m,conn); return; }
+    if(m.t==='file-end'){ handleFileEnd(m,conn); return; }
+    if(m.t==='file-cancel'){ handleFileCancel(m,conn); return; }
+  });
+}
+function wireGuestChannel(conn){
+  const first=!guestConn;
+  guestConn=conn; lastPongAt=now(); myRtt=null;
+  reconnecting=false; reconnectAttempts=0; hideConnBanner();
+  send(conn,{t:'hello',name:myName});
+  enterApp(); updateLive();
+  if(first){ log('Ligado ao anfitrião'); showToast('Conectado com sucesso!'); }
+  else{ log('Reconectado ao anfitrião'); showToast('Reconectado!'); }
+  pingLoop();
+  conn.on('close',()=>{ updateLive(); log('A ligação com o anfitrião caiu.'); scheduleGuestReconnect(); });
+  conn.on('error',err=>{ updateLive(); console.log('[Ponte] erro na ligação com o anfitrião',err); });
+  conn.on('data',m=>{
+    if(!m||typeof m!=='object') return;
+    if(m.t==='ping'){ send(conn,{t:'pong',t0:m.t0,hts:now()}); return; }
+    if(m.t==='pong'){ lastPongAt=now(); myRtt=now()-m.t0; return; }
+    if(m.t==='roster'){
+      window.__roster=m.list||[]; hostName=m.host||'anfitrião';
+      renderPeers(); return;
+    }
+    if(m.t==='chat'){ log(m.text,m.name||null); return; }
+    if(m.t==='file-start'){ handleFileStart(m,m.by,null); return; }
+    if(m.t==='file-chunk'){ handleFileChunk(m,null); return; }
+    if(m.t==='file-end'){ handleFileEnd(m,null); return; }
+    if(m.t==='file-cancel'){ handleFileCancel(m,null); return; }
+  });
+}
+function pingLoop(){
+  if(pingLoopActive) return;
+  pingLoopActive=true;
+  const tick=()=>{
+    if(guestConn&&guestConn.open){ send(guestConn,{t:'ping',t0:now()}); setTimeout(tick,2000); }
+    else{ pingLoopActive=false; }
+  };
+  tick();
+}
+
+function createRoom(){
+  myName=($('#nome').value||'Anfitrião').trim().slice(0,20);
+  role='host';
+  $('#hostSetupErr').textContent='';
+  const btn=$('#btnHost'); btn.disabled=true; btn.textContent='Abrindo a sala…';
+  let tries=0, opened=false;
+  const attempt=()=>{
+    const code=String(Math.floor(Math.random()*1000000)).padStart(6,'0');
+    const p=new Peer(ROOM_PREFIX+code,{debug:1});
+    p.on('open',()=>{
+      const first=!opened;
+      opened=true; hostPeer=p; roomCode=code; hostReconnectAttempts=0; hideConnBanner();
+      if(first){
+        enterApp(); renderCode(code);
+        setStatus('sala vazia',false);
+        log('Sala criada. Compartilhe o código com um amigo.');
+        btn.disabled=false; btn.textContent='Criar sala';
+      }else{
+        setStatus(peers.size?'no ar':'sala vazia',peers.size>0);
+        log('Sinalizador reconectado.');
+        showToast('Reconectado!');
+      }
+    });
+    p.on('connection',conn=>{
+      const id=conn.peer;
+      peers.set(id,{conn,name:null,on:false,lastSeen:now(),createdAt:now()});
+      wireHostChannel(id,conn);
+    });
+    p.on('disconnected',()=>{
+      if(!opened) return;
+      showConnBanner('Reconectando ao sinalizador…');
+      setStatus('reconectando…',false);
+      try{ p.reconnect(); }catch(_){}
+    });
+    p.on('error',err=>{
+      if(!opened&&err.type==='unavailable-id'&&tries<6){ tries++; try{p.destroy();}catch(_){} attempt(); return; }
+      if(!opened){ $('#hostSetupErr').textContent=peerErrMsg(err); btn.disabled=false; btn.textContent='Criar sala'; return; }
+      console.log('[Ponte] erro do peer (anfitrião)',err);
+      hostReconnectAttempts++;
+      if(hostReconnectAttempts>10){ showConnBanner('Não deu para reabrir a sala. Confira sua internet.',true); }
+      else{ showConnBanner('Reconectando ao sinalizador…'); setTimeout(()=>{ try{p.reconnect();}catch(_){} },Math.min(1000*hostReconnectAttempts,8000)); }
+    });
+  };
+  attempt();
+}
+
+function joinRoom(raw){
+  const code=String(raw||'').replace(/\D/g,'').slice(0,6);
+  $('#joinErr').textContent='';
+  if(code.length<4){ $('#joinErr').textContent='Digite o código completo.'; return; }
+  myName=($('#nome').value||'Convidado').trim().slice(0,20);
+  role='guest';
+  const btn=$('#btnJoin'); btn.disabled=true; btn.textContent='Entrando…';
+  const p=new Peer({debug:1});
+  let settled=false;
+  const to=setTimeout(()=>finish('Isso está demorando. Confira o código e tente de novo.'),15000);
+  function finish(msg){
+    if(settled) return; settled=true;
+    clearTimeout(to);
+    btn.disabled=false; btn.textContent='Entrar na sala';
+    if(msg){ $('#joinErr').textContent=msg; try{p.destroy();}catch(_){} }
+  }
+  p.on('open',()=>{
+    guestPeer=p;
+    const conn=p.connect(ROOM_PREFIX+code);
+    conn.on('open',()=>{ finish(); roomCode=code; renderCode(code); wireGuestChannel(conn); });
+    conn.on('error',err=>{ console.log('[Ponte] erro na conexão (convidado)',err); finish(peerErrMsg(err)); });
+  });
+  p.on('disconnected',()=>{ if(settled&&role==='guest'){ setStatus('reconectando…',false); try{p.reconnect();}catch(_){} } });
+  p.on('error',err=>{ console.log('[Ponte] erro do peer (convidado)',err); finish(peerErrMsg(err)); });
+}
+
+function leaveRoom(){
+  clearTimeout(reconnectTimer); reconnecting=false; reconnectAttempts=0; hostReconnectAttempts=0;
+  hideConnBanner();
+  myRtt=null; lastHostPingAt=0;
+  $('#meter').classList.remove('q-good','q-bad');
+  peers.forEach(p=>{ try{p.conn.close();}catch(_){} });
+  peers.clear();
+  try{ hostPeer&&hostPeer.destroy(); }catch(_){}
+  try{ guestConn&&guestConn.close(); }catch(_){}
+  try{ guestPeer&&guestPeer.destroy(); }catch(_){}
+  hostPeer=null; guestPeer=null; guestConn=null;
+  role=null; roomCode=null; appOpen=false;
+  Object.keys(transfers).forEach(id=>{ if(transfers[id].blobUrl) try{URL.revokeObjectURL(transfers[id].blobUrl);}catch(_){} });
+  transfers={};
+  $('#app').classList.add('hide'); $('#setup').classList.remove('hide');
+  $('#leaveBtn').classList.add('hide'); $('#codeChip').classList.add('hide');
+  $('#codeIn').value=''; $('#chatlog').innerHTML='';
+  document.querySelector('.segTab[data-seg="criar"]').click();
+  setStatus('fora do ar',false);
+}
+
+function enterApp(){
+  if(!$('#app').classList.contains('hide')) return;
+  $('#setup').classList.add('hide');
+  $('#app').classList.remove('hide');
+  $('#leaveBtn').classList.remove('hide');
+  appOpen=true;
+  $('#roRole').textContent=role==='host'?'anfitrião':'convidado';
+  renderPeers(); renderFiles();
+}
+
+/* ---------- eventos ---------- */
+$('#btnHost').addEventListener('click',createRoom);
+$('#btnJoin').addEventListener('click',()=>joinRoom($('#codeIn').value));
+$('#codeIn').addEventListener('input',e=>{ e.target.value=e.target.value.replace(/\D/g,'').slice(0,6); });
+$('#codeIn').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#btnJoin').click(); });
+$('#leaveBtn').addEventListener('click',leaveRoom);
+
+function sendChat(){
+  const v=$('#chatIn').value.trim(); if(!v) return;
+  $('#chatIn').value=''; log(v,myName);
+  if(role==='host') broadcast({t:'chat',name:myName,text:v});
+  else send(guestConn,{t:'chat',text:v});
+}
+$('#btnSend').addEventListener('click',sendChat);
+$('#chatIn').addEventListener('keydown',e=>{ if(e.key==='Enter') sendChat(); });
+
+/* ---------- laço periódico: RTT, qualidade do medidor, faxina ---------- */
+setInterval(()=>{
+  if(role==='guest'&&guestConn&&guestConn.open&&lastPongAt&&now()-lastPongAt>12000&&!reconnecting){
+    try{ guestConn.close(); }catch(_){}
+  }
+  if(role==='host'){
+    purgeStalePeers();
+    if(now()-lastHostPingAt>3000){
+      lastHostPingAt=now();
+      peers.forEach(p=>{ if(p.on) send(p.conn,{t:'ping',t0:now()}); });
+    }
+    const rtts=[...peers.values()].filter(p=>p.on&&p.rtt!=null).map(p=>p.rtt);
+    myRtt=rtts.length?Math.max(...rtts):null;
+  }
+  updateMeterQuality();
+  $('#roRtt').textContent = myRtt==null?'—':Math.round(myRtt)+' ms';
+  purgeStaleTransfers();
+},1500);
+
+window.addEventListener('beforeunload',e=>{
+  const hasPeople = role==='host' ? [...peers.values()].some(p=>p.on) : !!(guestConn&&guestConn.open);
+  if(appOpen&&hasPeople){ e.preventDefault(); e.returnValue=''; }
+});
+window.addEventListener('pagehide',()=>{
+  peers.forEach(p=>{ try{p.conn.close();}catch(_){} });
+  try{ hostPeer&&hostPeer.destroy(); }catch(_){}
+  try{ guestConn&&guestConn.close(); }catch(_){}
+  try{ guestPeer&&guestPeer.destroy(); }catch(_){}
+});
+</script>
+</body>
+</html>
