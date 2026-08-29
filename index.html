@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#08110F">
 <title>Antena — assistir junto, direto entre vocês</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -84,7 +84,7 @@ button.big{width:100%;padding:15px 16px;font-size:14px;min-height:52px}
 .empty button{pointer-events:auto}
 #playerHolder iframe,#pipVideo iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
 #pipVideo{position:relative}
-.warn{background:rgba(255,176,32,.08);border:1px solid var(--signal-dim);color:var(--signal);padding:10px 12px;border-radius:var(--r);font-size:13px;margin-bottom:16px}
+.warn{background:rgba(255,176,32,.08);border:1px solid var(--signal-dim);color:var(--signal);padding:10px 12px;border-radius:var(--r);font-size:13px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 #tapPlay{background:rgba(0,0,0,.82);color:var(--fog)}
 .bar{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
 .bar input{flex:1;min-width:170px}
@@ -210,6 +210,10 @@ details.diag .readout{margin-top:2px}
 <!-- ================= SALA ================= -->
 <section id="app" class="hide">
   <div class="warn hide" id="fileWarn"></div>
+  <div class="warn hide" id="connBanner">
+    <span id="connBannerTxt">Reconectando…</span>
+    <button class="tiny ghost hide" id="btnRetryNow">Tentar agora</button>
+  </div>
   <div class="grid">
     <div>
       <div class="stage">
@@ -316,6 +320,15 @@ details.diag .readout{margin-top:2px}
    ============================================================ */
 
 const $ = s => document.querySelector(s);
+const SITE_URL='https://viniciuseliel-glitch.github.io/antenap2p/';
+
+/* O iOS Safari ignora "user-scalable=no" do viewport (decisão de
+   acessibilidade da Apple desde o iOS 10), então o pinça-pra-zoom no vídeo
+   ainda passaria pela meta tag. Bloqueamos o gesto direto. */
+try{
+  document.addEventListener('gesturestart',e=>e.preventDefault());
+  document.addEventListener('gesturechange',e=>e.preventDefault());
+}catch(_){}
 const ROOM_PREFIX='antena9-';
 
 let role=null, myName='', hostName='', freeControl=false;
@@ -334,6 +347,7 @@ let pendingLoad=null;      // pedido de vídeo feito antes do player existir
 let playAttemptAt=0;       // quando pedimos play pela última vez
 let mountToken=0, mountRetries=0, appOpen=false;
 let unreadChat=0, toastT=null;
+let reconnecting=false, reconnectAttempts=0, reconnectTimer=null, hostReconnectAttempts=0, lastPongAt=0, pingLoopActive=false;
 
 const rand=()=>Math.random().toString(36).slice(2,10);
 const now=()=>Date.now();
@@ -361,6 +375,12 @@ function showToast(text){
   const el=$('#toast'); el.textContent=text; el.classList.add('show');
   clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),2600);
 }
+function showConnBanner(text,showRetry){
+  $('#connBannerTxt').textContent=text;
+  $('#connBanner').classList.remove('hide');
+  $('#btnRetryNow').classList.toggle('hide',!showRetry);
+}
+function hideConnBanner(){ $('#connBanner').classList.add('hide'); }
 function log(text,who){
   const d=document.createElement('div');
   d.className='msg'+(who?'':' sys');
@@ -408,6 +428,20 @@ document.querySelectorAll('.segTab').forEach(btn=>{
   });
 });
 
+/* Um link compartilhado já vem com o código: entra direto na aba de
+   entrar, com os números preenchidos, faltando só o nome e o toque. */
+(function prefillFromLink(){
+  try{
+    const params=new URLSearchParams(location.search);
+    const code=(params.get('code')||'').replace(/\D/g,'').slice(0,6);
+    if(code.length>=4){
+      $('#codeIn').value=code;
+      document.querySelector('.segTab[data-seg="entrar"]').click();
+    }
+    if(params.toString()) history.replaceState(null,'',location.pathname+location.hash);
+  }catch(_){}
+})();
+
 /* ---------- abas (mobile) ---------- */
 document.querySelectorAll('.tab').forEach(btn=>{
   btn.addEventListener('click',()=>{
@@ -442,7 +476,11 @@ $('#btnChipCopy').addEventListener('click',()=>copyCode($('#btnChipCopy')));
 if(navigator.share){
   $('#btnShareCode').classList.remove('hide');
   $('#btnShareCode').addEventListener('click',()=>{
-    navigator.share({title:'Antena',text:'Entra na minha sala da Antena — o código é '+roomCode}).catch(()=>{});
+    navigator.share({
+      title:'Antena',
+      text:'Entra na minha sala da Antena — o código é '+roomCode,
+      url:SITE_URL+'?code='+roomCode
+    }).catch(()=>{});
   });
 }
 
@@ -682,6 +720,18 @@ setInterval(()=>{
   }
   checkBlocked();
   updatePlayerReadout();
+  if(role==='guest'&&guestConn&&guestConn.open&&lastPongAt&&now()-lastPongAt>12000&&!reconnecting){
+    console.log('[Antena] sem resposta do anfitrião há mais de 12s, forçando reconexão');
+    try{ guestConn.close(); }catch(_){}
+  }
+  if(role==='host'){
+    peers.forEach(p=>{
+      if(p.on&&p.lastSeen&&now()-p.lastSeen>25000){
+        console.log('[Antena] convidado sem responder, encerrando a ligação');
+        try{ p.conn.close(); }catch(_){}
+      }
+    });
+  }
 },1500);
 
 const ESTADOS={'-1':'não iniciado',0:'terminou',1:'tocando',2:'pausado',3:'carregando',5:'pronto'};
@@ -844,6 +894,59 @@ function peerErrMsg(err){
   return msgs[t] || ('Erro de conexão'+(t?' ('+t+')':'')+'.');
 }
 
+/* Se a ligação cair — Wi-Fi trocando por 5G, tela bloqueada, sinal fraco —
+   o convidado tenta discar de novo sozinho, usando o mesmo código, em vez
+   de precisar sair e entrar de novo na mão. */
+function scheduleGuestReconnect(){
+  if(role!=='guest'||!appOpen||!roomCode||reconnecting) return;
+  reconnecting=true;
+  const delay = reconnectAttempts===0 ? 300 : Math.min(1000*Math.pow(1.6,reconnectAttempts),8000);
+  showConnBanner('Reconectando à sala…');
+  setStatus('reconectando…',false);
+  reconnectTimer=setTimeout(attemptGuestReconnect,delay);
+}
+function attemptGuestReconnect(){
+  reconnecting=false;
+  if(role!=='guest'||!appOpen||!roomCode) return;
+  try{ guestPeer&&guestPeer.destroy(); }catch(_){}
+  const p=new Peer({debug:1});
+  p.on('open',()=>{
+    guestPeer=p;
+    const conn=p.connect(ROOM_PREFIX+roomCode);
+    conn.on('open',()=>{ wireGuestChannel(conn); });
+    conn.on('error',err=>{
+      console.log('[Antena] falha ao reconectar (convidado)',err);
+      reconnectAttempts++; retryOrGiveUp();
+    });
+  });
+  p.on('error',err=>{
+    console.log('[Antena] falha ao reconectar (convidado)',err);
+    reconnectAttempts++; retryOrGiveUp();
+  });
+}
+function retryOrGiveUp(){
+  if(reconnectAttempts>12){
+    showConnBanner('Não consegui voltar para a sala. Confira sua internet.',true);
+    setStatus('ligação caiu',false);
+  }else{
+    scheduleGuestReconnect();
+  }
+}
+$('#btnRetryNow').addEventListener('click',()=>{
+  hideConnBanner();
+  if(role==='host'&&hostPeer){ hostReconnectAttempts=0; showConnBanner('Reconectando ao sinalizador…'); try{hostPeer.reconnect();}catch(_){} }
+  else if(role==='guest'){ reconnectAttempts=0; attemptGuestReconnect(); }
+});
+window.addEventListener('online',()=>{
+  if(role==='guest'&&appOpen&&(!guestConn||!guestConn.open)){ reconnectAttempts=0; scheduleGuestReconnect(); }
+  else if(role==='host'&&appOpen&&hostPeer&&hostPeer.disconnected){ hostReconnectAttempts=0; try{hostPeer.reconnect();}catch(_){} }
+});
+if(navigator.connection&&navigator.connection.addEventListener){
+  navigator.connection.addEventListener('change',()=>{
+    if(role==='guest'&&appOpen&&(!guestConn||!guestConn.open)){ reconnectAttempts=0; scheduleGuestReconnect(); }
+  });
+}
+
 function wireHostChannel(id,conn){
   const p=peers.get(id); p.conn=conn;
   conn.on('open',()=>{
@@ -862,6 +965,7 @@ function wireHostChannel(id,conn){
   conn.on('error',err=>{ p.on=false; updateLive(); console.log('[Antena] erro na ligação com convidado',err); });
   conn.on('data',m=>{
     if(!m||typeof m!=='object') return;
+    p.lastSeen=now();
     const quem=p.name||'convidado';
     if(m.t==='handshake-test'){ console.log('[Antena] teste de handshake recebido do convidado:',m); return; }
     if(m.t==='ping'){ send(conn,{t:'pong',t0:m.t0,hts:now()}); return; }
@@ -901,21 +1005,24 @@ function wireHostChannel(id,conn){
   });
 }
 function wireGuestChannel(conn){
-  guestConn=conn;
+  const first=!guestConn;
+  guestConn=conn; offsetSamples=[]; clockOffset=0; lastPongAt=now();
+  reconnecting=false; reconnectAttempts=0; hideConnBanner();
   send(conn,{t:'hello',name:myName});
   const testMsg={t:'handshake-test',from:myName,ts:now()};
   console.log('[Antena] canal de dados aberto — enviando teste de handshake ao anfitrião:',testMsg);
   send(conn,testMsg);
   enterApp(); updateLive();
-  log('Ligado ao anfitrião');
-  showToast('Conectado com sucesso!');
+  if(first){ log('Ligado ao anfitrião'); showToast('Conectado com sucesso!'); }
+  else{ log('Reconectado ao anfitrião'); showToast('Reconectado!'); }
   pingLoop();
-  conn.on('close',()=>{ updateLive(); log('A ligação caiu. Volte e entre com o código de novo.'); });
+  conn.on('close',()=>{ updateLive(); log('A ligação com o anfitrião caiu.'); scheduleGuestReconnect(); });
   conn.on('error',err=>{ updateLive(); console.log('[Antena] erro na ligação com o anfitrião',err); });
   conn.on('data',m=>{
     if(!m||typeof m!=='object') return;
     if(m.t==='handshake-test'){ console.log('[Antena] teste de handshake recebido do anfitrião:',m); return; }
     if(m.t==='pong'){
+      lastPongAt=now();
       const t3=now(), off=((m.hts-m.t0)+(m.hts-t3))/2;
       offsetSamples.push(off); if(offsetSamples.length>7) offsetSamples.shift();
       const s=[...offsetSamples].sort((a,b)=>a-b); clockOffset=s[Math.floor(s.length/2)];
@@ -934,7 +1041,12 @@ function wireGuestChannel(conn){
   });
 }
 function pingLoop(){
-  const tick=()=>{ if(guestConn&&guestConn.open){ send(guestConn,{t:'ping',t0:now()}); setTimeout(tick,offsetSamples.length<5?600:4000); } };
+  if(pingLoopActive) return;
+  pingLoopActive=true;
+  const tick=()=>{
+    if(guestConn&&guestConn.open){ send(guestConn,{t:'ping',t0:now()}); setTimeout(tick,offsetSamples.length<5?600:4000); }
+    else{ pingLoopActive=false; }
+  };
   tick();
 }
 
@@ -955,23 +1067,41 @@ function createRoom(){
     const code=String(Math.floor(Math.random()*1000000)).padStart(6,'0');
     const p=new Peer(ROOM_PREFIX+code,{debug:1});
     p.on('open',()=>{
-      opened=true; hostPeer=p; roomCode=code;
-      enterApp(); renderCode(code);
-      setStatus('sala aberta · sem ninguém',false);
-      log('Sala criada. Compartilhe o código com um amigo.');
-      btn.disabled=false; btn.textContent='Criar sala';
+      const first=!opened;
+      opened=true; hostPeer=p; roomCode=code; hostReconnectAttempts=0; hideConnBanner();
+      if(first){
+        enterApp(); renderCode(code);
+        setStatus('sala aberta · sem ninguém',false);
+        log('Sala criada. Compartilhe o código com um amigo.');
+        btn.disabled=false; btn.textContent='Criar sala';
+      }else{
+        setStatus(peers.size?'no ar · reconectado':'sala aberta · sem ninguém',peers.size>0);
+        log('Sinalizador reconectado.');
+        showToast('Reconectado!');
+      }
     });
     p.on('connection',conn=>{
       const id=conn.peer;
-      peers.set(id,{conn,name:null,on:false});
+      peers.set(id,{conn,name:null,on:false,lastSeen:now()});
       wireHostChannel(id,conn);
     });
-    p.on('disconnected',()=>{ if(opened){ setStatus('reconectando…',false); try{p.reconnect();}catch(_){} } });
+    p.on('disconnected',()=>{
+      if(!opened) return;
+      showConnBanner('Reconectando ao sinalizador…');
+      setStatus('reconectando…',false);
+      try{ p.reconnect(); }catch(_){}
+    });
     p.on('error',err=>{
       if(!opened&&err.type==='unavailable-id'&&tries<6){ tries++; try{p.destroy();}catch(_){} attempt(); return; }
       if(!opened){ $('#hostSetupErr').textContent=peerErrMsg(err); btn.disabled=false; btn.textContent='Criar sala'; return; }
-      $('#appErr').textContent=peerErrMsg(err);
       console.log('[Antena] erro do peer (anfitrião)',err);
+      hostReconnectAttempts++;
+      if(hostReconnectAttempts>10){
+        showConnBanner('Não deu para reabrir a sala. Confira sua internet.',true);
+      }else{
+        showConnBanner('Reconectando ao sinalizador…');
+        setTimeout(()=>{ try{p.reconnect();}catch(_){} },Math.min(1000*hostReconnectAttempts,8000));
+      }
     });
   };
   attempt();
@@ -1004,6 +1134,8 @@ function joinRoom(raw){
 }
 
 function leaveRoom(){
+  clearTimeout(reconnectTimer); reconnecting=false; reconnectAttempts=0; hostReconnectAttempts=0;
+  hideConnBanner();
   peers.forEach(p=>{ try{p.conn.close();}catch(_){} });
   peers.clear();
   try{ hostPeer&&hostPeer.destroy(); }catch(_){}
@@ -1087,7 +1219,15 @@ function sendChat(){
 $('#btnSend').addEventListener('click',sendChat);
 $('#chatIn').addEventListener('keydown',e=>{ if(e.key==='Enter') sendChat(); });
 
-window.addEventListener('beforeunload',()=>{
+/* Um "voltar" ou um fechamento por engano some com a sala pra quem está nela.
+   Se tiver gente conectada, o navegador pergunta antes — dá pra desistir e
+   ficar. A limpeza de verdade só roda no pagehide, quando a saída já é certa,
+   pra não derrubar a ligação de quem só olhou o aviso e cancelou. */
+window.addEventListener('beforeunload',e=>{
+  const hasPeople = role==='host' ? [...peers.values()].some(p=>p.on) : !!(guestConn&&guestConn.open);
+  if(appOpen&&hasPeople){ e.preventDefault(); e.returnValue=''; }
+});
+window.addEventListener('pagehide',()=>{
   peers.forEach(p=>{ try{p.conn.close();}catch(_){} });
   try{ hostPeer&&hostPeer.destroy(); }catch(_){}
   try{ guestConn&&guestConn.close(); }catch(_){}
@@ -1097,3 +1237,4 @@ window.addEventListener('beforeunload',()=>{
 </script>
 </body>
 </html>
+
