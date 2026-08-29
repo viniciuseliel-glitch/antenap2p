@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#08110F">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Antena — assistir junto, direto entre vocês</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,6 +31,14 @@ h1,h2,h3,.disp{font-family:"Archivo",system-ui,sans-serif;letter-spacing:-.02em;
 .wrap{max-width:1180px;margin:0 auto;padding:0 16px 60px}
 header.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px 0 14px;border-bottom:1px solid var(--line);margin-bottom:20px}
 .brand{display:flex;align-items:center;gap:10px;flex-wrap:wrap;row-gap:8px}
+@media (max-width:480px){
+  .brand span{display:none}
+  header.top{gap:10px}
+  .brand{gap:8px}
+  .brand b{font-size:17px}
+  #leaveBtn{padding:8px 10px}
+  .status{letter-spacing:.03em;gap:7px}
+}
 .brand b{font-family:"Archivo";font-weight:800;font-size:20px;text-transform:uppercase;letter-spacing:.14em}
 .brand span{color:var(--dim);font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-family:"DM Mono"}
 .top .spacer{flex:1}
@@ -175,7 +184,7 @@ details.diag .readout{margin-top:2px}
 <header class="top">
   <div class="brand">
     <b>Antena</b><span>ligação direta</span>
-    <button class="sm ghost hide" id="leaveBtn">Sair da sala</button>
+    <button class="sm ghost hide" id="leaveBtn" aria-label="Sair da sala">Sair da sala</button>
   </div>
   <div class="spacer"></div>
   <div class="status">
@@ -310,7 +319,7 @@ details.diag .readout{margin-top:2px}
 
   <footer>
     O vídeo, o chat e a fila viajam direto entre os navegadores — nenhum site nosso vê esses dados. Só a apresentação inicial passa pela nuvem pública do PeerJS, que sabe apenas que dois códigos existem, nunca o conteúdo. Se todo mundo fechar a aba, a sala deixa de existir.
-    <br><span style="opacity:.5">build v18</span>
+    <br><span style="opacity:.5">build v20</span>
   </footer>
 </section>
 
@@ -328,6 +337,13 @@ details.diag .readout{margin-top:2px}
    ============================================================ */
 
 const $ = s => document.querySelector(s);
+/* Em tela estreita, "Sair da sala" some do meio do "Antena / Ligação
+   direta" — encurta pra "Sair" só visualmente; o rótulo pra leitor de
+   tela continua completo. */
+const leaveBtnMQ = window.matchMedia('(max-width:480px)');
+function updateLeaveBtnLabel(){ $('#leaveBtn').textContent = leaveBtnMQ.matches ? 'Sair' : 'Sair da sala'; }
+updateLeaveBtnLabel();
+try{ leaveBtnMQ.addEventListener('change',updateLeaveBtnLabel); }catch(_){}
 const SITE_URL='https://viniciuseliel-glitch.github.io/antenap2p/';
 
 /* O iOS Safari ignora "user-scalable=no" do viewport (decisão de
@@ -658,6 +674,7 @@ function mountPlayer(container,opts){
   const conf={width:w,height:h,playerVars:vars,events:{
       onReady:()=>{
         playerReady=true; mountRetries=0; $('#appErr').textContent='';
+        try{ const fr=player.getIframe(); if(fr) fr.referrerPolicy='strict-origin-when-cross-origin'; }catch(_){}
         // A medida no momento do mount pode já estar desatualizada (fontes
         // carregando, barra do navegador recolhendo); reafirma o tamanho
         // assim que o player realmente responde.
@@ -850,7 +867,7 @@ if(pipOK){
   $('#pipHint').textContent='Fica por cima das outras janelas.';
 }else if(fsOK){
   $('#btnPip').textContent='Tela cheia';
-  $('#pipHint').textContent='No Android isso abre em tela cheia. Saia do app depois — o Chrome flutua o vídeo sozinho e a sincronia funciona ao voltar.';
+  $('#pipHint').textContent='No Android isso abre em tela cheia. Saia do app depois — o Chrome flutua o vídeo sozinho e a sincronia volta ao voltar.';
   $('#autoPipChk').disabled=true;
   $('#autoPipChk').parentNode.style.opacity='.45';
 }else{
@@ -966,7 +983,7 @@ function pushRoster(){ broadcast({t:'roster',list:roster(),free:freeControl,host
 function updateLive(){
   if(role==='host'){
     const n=[...peers.values()].filter(p=>p.on).length;
-    setStatus(n?'no ar · '+n+(n>1?' ligações':' ligação'):'sala aberta · sem ninguém',n>0);
+    setStatus(n?'no ar':'sala vazia',n>0);
   }else{
     const on=guestConn&&guestConn.open;
     setStatus(on?'no ar':'ligação caiu',on);
@@ -1185,11 +1202,11 @@ function createRoom(){
       opened=true; hostPeer=p; roomCode=code; hostReconnectAttempts=0; hideConnBanner();
       if(first){
         enterApp(); renderCode(code);
-        setStatus('sala aberta · sem ninguém',false);
+        setStatus('sala vazia',false);
         log('Sala criada. Compartilhe o código com um amigo.');
         btn.disabled=false; btn.textContent='Criar sala';
       }else{
-        setStatus(peers.size?'no ar · reconectado':'sala aberta · sem ninguém',peers.size>0);
+        setStatus(peers.size?'no ar · reconectado':'sala vazia',peers.size>0);
         log('Sinalizador reconectado.');
         showToast('Reconectado!');
       }
