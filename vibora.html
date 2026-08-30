@@ -261,7 +261,7 @@ ul.peers li:last-child{border-bottom:none}
 
 <div class="legend">
   Cada partida roda direto entre os aparelhos, sem servidor — quem manda a sala é o <b>relógio do jogo</b>; o resto só desenha o que chega.
-  <br><span style="opacity:.6">build v4</span>
+  <br><span style="opacity:.6">build v5</span>
 </div>
 
 <div id="toast"></div>
@@ -631,7 +631,7 @@ function leaveRoom(){
   clearTimeout(reconnectTimer); reconnecting=false; reconnectAttempts=0; hostReconnectAttempts=0;
   hideConnBanner();
   myRtt=null; lastHostPingAt=0;
-  clearInterval(gameTickInterval); gameTickInterval=null;
+  clearTimeout(gameTickTimer); gameTickTimer=null;
   clearInterval(countdownInterval); countdownInterval=null;
   peers.forEach(p=>{ try{p.conn.close();}catch(_){} });
   peers.clear();
@@ -701,12 +701,14 @@ $('#chatIn').addEventListener('keydown',e=>{ if(e.key==='Enter') sendChat(); });
 /* ============================================================
    Jogo: o anfitrião simula, todo mundo desenha.
    ============================================================ */
-const GRID_W=18, GRID_H=18, TICK_MS=140;
+const GRID_W=18, GRID_H=18;
+const BASE_TICK_MS=190, MIN_TICK_MS=70, SPEEDUP_PER_SEGMENT=4;
+const FOOD_COUNT=3;
 const BIG_FOOD_CHANCE=0.17, BIG_FOOD_GROWTH=5;
 const PLAYER_COLORS=['#35401A','#8B3A2B','#2B5A6B','#6B3A7A','#7A5A1F','#3A6B4A','#6B2B4A','#4A4A6B'];
 let game=null;        // estado de verdade, só o anfitrião mantém
 let localGame=null;   // última cópia recebida, usado por quem não é anfitrião
-let gameTickInterval=null, countdownInterval=null;
+let gameTickTimer=null, countdownInterval=null;
 let myDir=null;        // minha própria direção pendente (host controla direto, sem rede)
 
 function isOpposite(a,b){
@@ -726,7 +728,7 @@ function startPosFor(index){
   return spots[index%spots.length];
 }
 function initGame(){
-  game={ snakes:{}, food:null, gridW:GRID_W, gridH:GRID_H, status:'lobby', countdown:0, tick:0, winnerName:null };
+  game={ snakes:{}, foods:[], gridW:GRID_W, gridH:GRID_H, status:'lobby', countdown:0, tick:0, winnerName:null };
   let i=0;
   addSnake('host', myName, i++);
   peers.forEach((p,id)=>{ if(p.on) addSnake(id,p.name||'jogador',i++); });
@@ -743,15 +745,20 @@ function removePlayer(id){
   delete game.snakes[id];
   broadcastGame();
 }
-function spawnFood(){
+function spawnOneFood(){
   const occ=new Set();
   Object.values(game.snakes).forEach(s=>s.segments.forEach(seg=>occ.add(seg.x+','+seg.y)));
+  game.foods.forEach(f=>occ.add(f.x+','+f.y));
   let pos,tries=0;
   do{ pos={x:Math.floor(Math.random()*game.gridW),y:Math.floor(Math.random()*game.gridH)}; tries++; }
   while(occ.has(pos.x+','+pos.y)&&tries<300);
   // maçã grande de vez em quando — rara o bastante pra ser um evento, não a regra
   pos.big = Math.random() < BIG_FOOD_CHANCE;
-  game.food=pos;
+  return pos;
+}
+function spawnFood(){
+  if(!game.foods) game.foods=[];
+  while(game.foods.length<FOOD_COUNT){ game.foods.push(spawnOneFood()); }
 }
 function broadcastGame(){ if(role==='host') broadcast({t:'game',game}); renderGameChrome(); }
 
@@ -777,14 +784,29 @@ function beginCountdown(){
       clearInterval(countdownInterval);
       game.status='playing';
       broadcastGame();
-      clearInterval(gameTickInterval);
-      gameTickInterval=setInterval(gameTick,TICK_MS);
+      clearTimeout(gameTickTimer);
+      scheduleNextTick();
     }else{
       broadcastGame();
     }
   },700);
 }
 
+/* Velocidade acompanha o tamanho da maior cobra viva: começa devagar e vai
+   acelerando conforme ela cresce, até um teto pra não ficar injogável. Como
+   o passo do jogo é compartilhado entre todo mundo, quem está na frente
+   acelera a rodada inteira — o próprio crescimento vira a dificuldade. */
+function currentTickMs(){
+  if(!game) return BASE_TICK_MS;
+  let maxLen=1;
+  Object.values(game.snakes).forEach(s=>{ if(s.alive) maxLen=Math.max(maxLen,s.segments.length); });
+  const extra=Math.max(0,maxLen-1);
+  return Math.max(MIN_TICK_MS, BASE_TICK_MS-extra*SPEEDUP_PER_SEGMENT);
+}
+function scheduleNextTick(){
+  if(!game||game.status!=='playing') return;
+  gameTickTimer=setTimeout(()=>{ gameTick(); scheduleNextTick(); }, currentTickMs());
+}
 function gameTick(){
   if(!game||game.status!=='playing') return;
   game.tick++;
@@ -807,20 +829,25 @@ function gameTick(){
     if(bodyCells.has(h.x+','+h.y)){ s.alive=false; return; }
     if(headCount[h.x+','+h.y]>1){ s.alive=false; return; }
   });
+  let anyEaten=false;
   aliveEntries.forEach(([id,s])=>{
     if(!s.alive) return;
     const h=newHeads[id];
     s.segments.unshift(h);
-    if(game.food&&h.x===game.food.x&&h.y===game.food.y){
-      const growBy=game.food.big?BIG_FOOD_GROWTH:1;
+    const foodIdx=game.foods.findIndex(f=>f.x===h.x&&f.y===h.y);
+    if(foodIdx!==-1){
+      const eaten=game.foods[foodIdx];
+      game.foods.splice(foodIdx,1);
+      anyEaten=true;
+      const growBy=eaten.big?BIG_FOOD_GROWTH:1;
       s.score+=growBy;
       // a cabeça já entrou (unshift acima); cada crescimento extra além do
       // normal é o rabo duplicado, pra crescer de uma vez, não aos poucos.
       for(let k=0;k<growBy-1;k++) s.segments.push(s.segments[s.segments.length-1]);
-      spawnFood();
     }
     else s.segments.pop();
   });
+  if(anyEaten) spawnFood(); // repõe até voltar pro total de comidas na mesa
   const stillAlive=Object.entries(game.snakes).filter(([id,s])=>s.alive);
   const totalPlayers=Object.keys(game.snakes).length;
   if(totalPlayers>1&&stillAlive.length<=1){ endGame(stillAlive[0]?stillAlive[0][1].name:null); return; }
@@ -829,7 +856,7 @@ function gameTick(){
 }
 function endGame(winnerName){
   game.status='gameover'; game.winnerName=winnerName;
-  clearInterval(gameTickInterval); gameTickInterval=null;
+  clearTimeout(gameTickTimer); gameTickTimer=null;
   broadcastGame();
 }
 
@@ -934,10 +961,10 @@ function draw(){
   const bw=Math.max(3,Math.round(cw*0.014));
   ctx.strokeStyle='#35401A'; ctx.lineWidth=bw;
   ctx.strokeRect(bw/2,bw/2,cw-bw,ch-bw);
-  if(g.food){
-    const pulse=0.72+0.28*Math.sin(now()/180);
-    const cx=g.food.x*cellW+cellW/2, cy=g.food.y*cellH+cellH/2;
-    if(g.food.big){
+  const pulse=0.72+0.28*Math.sin(now()/180);
+  (g.foods||[]).forEach(food=>{
+    const cx=food.x*cellW+cellW/2, cy=food.y*cellH+cellH/2;
+    if(food.big){
       const r=cellW*(0.95+0.12*pulse);
       ctx.fillStyle='#D98A1F';
       ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
@@ -946,9 +973,9 @@ function draw(){
     }else{
       ctx.fillStyle='#E14B3D';
       const pad=cellW*0.5*(1-pulse*0.6);
-      ctx.fillRect(g.food.x*cellW+pad, g.food.y*cellH+pad, cellW-2*pad, cellH-2*pad);
+      ctx.fillRect(food.x*cellW+pad, food.y*cellH+pad, cellW-2*pad, cellH-2*pad);
     }
-  }
+  });
   Object.values(g.snakes).forEach(s=>{
     ctx.fillStyle=s.alive?s.color:'rgba(53,64,26,.25)';
     s.segments.forEach((seg,i)=>{
