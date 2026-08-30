@@ -19,11 +19,13 @@
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;max-width:100%;overflow-x:hidden}
+html{height:100%}
 body{
-  min-height:100vh; background:#1A1814;
+  height:100dvh; height:100vh; background:#1A1814;
   font-family:"VT323",monospace; font-size:19px; color:var(--ink);
-  padding:14px 10px calc(14px + env(safe-area-inset-bottom));
-  display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+  padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  overflow:hidden;
 }
 .pixel{font-family:"Press Start 2P",monospace}
 h1,h2,h3{margin:0}
@@ -33,44 +35,28 @@ input{font-family:inherit}
 ::selection{background:var(--ink);color:var(--lcd)}
 
 /* ---------- casca do aparelho ---------- */
-.device{width:100%;max-width:420px;background:var(--shell);border-radius:26px;padding:16px 14px 20px;box-shadow:0 22px 50px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06);position:relative}
-.devtop{display:flex;align-items:center;gap:8px;padding:2px 4px 10px}
+/* Tudo cabe na altura da tela — nada de rolagem. O aparelho preenche a
+   viewport, e cada nível interno usa flex + min-height:0 pra realmente
+   encolher em vez de estourar (o clássico problema de flex que já
+   apareceu antes nesta conversa). */
+.device{width:100%;max-width:420px;height:100%;max-height:820px;background:var(--shell);border-radius:22px;padding:10px 10px 12px;box-shadow:0 22px 50px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06);position:relative;display:flex;flex-direction:column;min-height:0}
+.devtop{display:flex;align-items:center;gap:8px;padding:2px 4px 8px;flex:none}
 .devtop b{color:var(--label);font-size:11px;letter-spacing:.06em}
 .devtop .spacer{flex:1}
-.led{width:8px;height:8px;border-radius:50%;background:var(--led-off);box-shadow:inset 0 0 0 1px rgba(0,0,0,.4)}
+.led{width:8px;height:8px;border-radius:50%;background:var(--led-off);box-shadow:inset 0 0 0 1px rgba(0,0,0,.4);flex:none}
 .led.on{background:var(--led);box-shadow:0 0 6px 1px var(--led), inset 0 0 0 1px rgba(0,0,0,.3)}
 .led.on.good{background:#5FB24A;box-shadow:0 0 6px 1px #5FB24A}
 .led.on.bad{background:var(--led);box-shadow:0 0 6px 1px var(--led);animation:ledblink 1s step-end infinite}
 @keyframes ledblink{0%,49%{opacity:1}50%,100%{opacity:.35}}
 .devtop .netlabel{font-family:"VT323";font-size:13px;color:var(--label);opacity:.75}
 
-.screenbezel{background:#000;border-radius:8px;padding:7px;box-shadow:inset 0 2px 6px rgba(0,0,0,.7)}
-.screen{background:var(--lcd);border-radius:3px;min-height:60vh;max-height:640px;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.screenbezel{background:#000;border-radius:8px;padding:6px;box-shadow:inset 0 2px 6px rgba(0,0,0,.7);flex:1;min-height:0;display:flex}
+.screen{background:var(--lcd);border-radius:3px;overflow:hidden;position:relative;display:flex;flex-direction:column;flex:1;min-height:0;width:100%;touch-action:none}
 .screen::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(180deg, rgba(53,64,26,.05) 0 1px, transparent 1px 3px);mix-blend-mode:multiply}
 
-/* ---------- controles físicos ---------- */
-.controls{display:flex;align-items:center;justify-content:space-between;padding:18px 6px 4px;gap:10px}
-.dpad{position:relative;width:118px;height:118px;flex:none}
-.dbtn{position:absolute;background:var(--shell-panel);border:none;box-shadow:0 2px 0 rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.08);color:var(--dim2);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer}
-.dbtn:active{background:#302C24;box-shadow:inset 0 2px 3px rgba(0,0,0,.5)}
-.dbtn.up{left:39px;top:0;width:40px;height:40px;border-radius:6px 6px 0 0}
-.dbtn.down{left:39px;top:78px;width:40px;height:40px;border-radius:0 0 6px 6px}
-.dbtn.left{left:0;top:39px;width:40px;height:40px;border-radius:6px 0 0 6px}
-.dbtn.right{left:78px;top:39px;width:40px;height:40px;border-radius:0 6px 6px 0}
-.dpad .hub{position:absolute;left:39px;top:39px;width:40px;height:40px;background:var(--shell-panel);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
-
-.actionbtns{display:flex;flex-direction:column;align-items:center;gap:8px}
-.abtn{width:52px;height:52px;border-radius:50%;background:var(--shell-panel);border:none;box-shadow:0 3px 0 rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.08);color:var(--label);font-family:"Press Start 2P";font-size:9px;cursor:pointer}
-.abtn:active{box-shadow:inset 0 2px 3px rgba(0,0,0,.5);transform:translateY(2px)}
-.abtn.leave{color:#C97A6E}
-.abtnlabel{font-size:10px;color:var(--label);opacity:.6;text-align:center;letter-spacing:.04em}
-
-.speaker{display:flex;gap:5px;justify-content:center;padding-top:14px}
-.speaker i{width:4px;height:4px;border-radius:50%;background:var(--shell-hi)}
-
 /* ---------- conteúdo dentro da tela (2 tons, tipografia LCD) ---------- */
-.pad{padding:16px 14px}
-.center{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;flex:1;padding:24px 16px}
+.pad{padding:10px 14px}
+.center{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;flex:1;padding:14px 16px;min-height:0;overflow-y:auto}
 .lede{font-size:15px;line-height:1.7;margin-bottom:14px;letter-spacing:.02em}
 .sub{font-size:16px;line-height:1.45;color:var(--mid);margin:0 0 18px;max-width:32ch}
 .field{margin-bottom:16px;width:100%;max-width:280px}
@@ -95,14 +81,23 @@ input[type=text]::placeholder{color:var(--mid)}
 .hint{font-size:14px;color:var(--mid);text-align:center;line-height:1.4}
 
 /* barra superior da tela (código + status), dentro da sala */
-.topbar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:2px solid rgba(53,64,26,.25)}
+.topbar{display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:2px solid rgba(53,64,26,.25);flex:none}
 .topbar .code{font-family:"Press Start 2P";font-size:12px}
 .topbar .spacer{flex:1}
-.topbar .stat{font-size:14px;color:var(--mid)}
+.topbar .stat{font-size:14px;color:var(--mid);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:30vw}
+.topicon{position:relative;background:transparent;border:2px solid var(--ink);border-radius:3px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--ink);cursor:pointer;padding:0;flex:none}
+.topicon .dot{position:absolute;top:-4px;right:-4px;width:9px;height:9px;border-radius:50%;background:#B23A2B;border:1px solid var(--lcd)}
+.topicon .dot:empty{display:none}
+
+/* ---------- gaveta (sala/papo), cobre a tela sem empurrar a altura ---------- */
+.drawer{position:absolute;inset:0;background:var(--lcd);z-index:6;display:flex;flex-direction:column;padding:10px 14px 14px;min-height:0;touch-action:pan-y}
+.drawerhead{display:flex;align-items:center;padding-bottom:8px;border-bottom:2px solid rgba(53,64,26,.25);margin-bottom:10px;flex:none}
+.drawerhead b{font-family:"Press Start 2P";font-size:11px}
+.drawerbody{flex:1;min-height:0;overflow-y:auto}
 .iconbtn{background:transparent;border:none;color:var(--ink);font-size:13px;cursor:pointer;padding:2px 4px;text-decoration:underline}
 
 /* placar */
-.scorebar{display:flex;gap:0;overflow-x:auto;border-bottom:2px solid rgba(53,64,26,.25);padding:8px 10px;gap:14px}
+.scorebar{display:flex;gap:14px;overflow-x:auto;border-bottom:2px solid rgba(53,64,26,.25);padding:6px 10px;flex:none;-webkit-overflow-scrolling:touch}
 .scoreitem{display:flex;align-items:center;gap:6px;flex:none;opacity:1}
 .scoreitem.dead{opacity:.4;text-decoration:line-through}
 .swatch{width:11px;height:11px;flex:none}
@@ -137,18 +132,10 @@ ul.peers li:last-child{border-bottom:none}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(12px);background:var(--ink);color:var(--lcd);font-family:"Press Start 2P";font-size:10px;padding:11px 16px;border-radius:2px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:80;max-width:90vw;text-align:center}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-.legend{max-width:420px;margin:12px auto 0;color:#8A8474;font-size:13px;text-align:center;line-height:1.5}
+.legend{max-width:420px;margin:8px auto 0;color:#8A8474;font-size:13px;text-align:center;line-height:1.5;flex:none}
 .legend b{color:#B5AE96}
+@media (max-height:720px){ .legend{display:none} }
 
-@media (max-width:380px){
-  .dpad{width:104px;height:104px}
-  .dbtn.up,.dbtn.down,.dbtn.left,.dbtn.right{width:36px;height:36px}
-  .dbtn.up,.dbtn.down{left:34px}
-  .dbtn.down{top:68px}
-  .dbtn.left{top:34px}
-  .dbtn.right{left:68px;top:34px}
-  .dpad .hub{left:34px;top:34px;width:36px;height:36px}
-}
 @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
 </style>
 </head>
@@ -158,7 +145,6 @@ ul.peers li:last-child{border-bottom:none}
   <div class="devtop">
     <div class="led" id="led"></div>
     <b class="pixel">VÍBORA</b>
-    <span class="netlabel" id="netlabel">fora do ar</span>
     <div class="spacer"></div>
   </div>
 
@@ -204,6 +190,8 @@ ul.peers li:last-child{border-bottom:none}
           <span class="code pixel" id="codeChipTxt">------</span>
           <div class="spacer"></div>
           <span class="stat" id="statusTxt">sala aberta</span>
+          <button class="topicon" id="btnDrawerOpen" title="Sala e papo">☰<span class="dot" id="tabChatBadge"></span></button>
+          <button class="topicon" id="btnLeaveRoom" title="Sair da sala">✕</button>
         </div>
 
         <div class="scorebar" id="scoreBar"></div>
@@ -218,60 +206,53 @@ ul.peers li:last-child{border-bottom:none}
           </div>
         </div>
 
-        <!-- painéis auxiliares, alternam por aba -->
-        <div class="pad" id="sidePanels" style="padding-top:8px">
-          <div class="segrow" style="max-width:100%">
+        <p class="hint" id="swipeHint" style="flex:none;padding:4px 10px 6px;font-size:13px">arraste o dedo na tela pra virar</p>
+
+        <!-- gaveta: sala + papo, cobre a tela por cima sem empurrar a altura -->
+        <div class="drawer hide" id="drawer">
+          <div class="drawerhead">
+            <b class="pixel" id="drawerTitle">sala</b>
+            <div class="spacer"></div>
+            <button class="topicon" id="btnDrawerClose">✕</button>
+          </div>
+          <div class="segrow" style="max-width:100%;flex:none">
             <button class="segbtn active tab" data-tab="sala">sala</button>
-            <button class="segbtn tab" data-tab="chat">papo <span id="tabChatBadge"></span></button>
+            <button class="segbtn tab" data-tab="chat">papo <span id="tabChatBadgeText"></span></button>
           </div>
 
-          <div class="tabpanel" id="panel-sala">
-            <div class="codebig" id="codeboxes"></div>
-            <p class="hint">esse código abre a sala sozinho — manda pra galera</p>
-            <div class="row" style="display:flex;gap:8px;justify-content:center;margin:8px 0 14px">
-              <button class="lcdbtn ghost" id="btnCopyCode" style="width:auto;padding:8px 14px;font-size:10px">copiar</button>
-              <button class="lcdbtn ghost hide" id="btnShareCode" style="width:auto;padding:8px 14px;font-size:10px">compartilhar</button>
+          <div class="drawerbody">
+            <div class="tabpanel" id="panel-sala">
+              <div class="codebig" id="codeboxes"></div>
+              <p class="hint">esse código abre a sala sozinho — manda pra galera</p>
+              <div class="row" style="display:flex;gap:8px;justify-content:center;margin:8px 0 14px">
+                <button class="lcdbtn ghost" id="btnCopyCode" style="width:auto;padding:8px 14px;font-size:10px">copiar</button>
+                <button class="lcdbtn ghost hide" id="btnShareCode" style="width:auto;padding:8px 14px;font-size:10px">compartilhar</button>
+              </div>
+              <ul class="peers" id="peerList"></ul>
+              <details style="margin-top:10px">
+                <summary style="cursor:pointer;font-size:13px;color:var(--mid)">diagnóstico</summary>
+                <div style="font-size:13px;color:var(--mid);display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
+                  <span>papel <b id="roRole" style="color:var(--ink)">—</b></span>
+                  <span>ligações <b id="roPeers" style="color:var(--ink)">0</b></span>
+                  <span>ida-e-volta <b id="roRtt" style="color:var(--ink)">—</b></span>
+                </div>
+              </details>
+              <p class="err" id="appErr"></p>
             </div>
-            <ul class="peers" id="peerList"></ul>
-          </div>
 
-          <div class="tabpanel hide" id="panel-chat">
-            <div id="chatlog"></div>
-            <div style="display:flex;gap:6px">
-              <input type="text" id="chatIn" placeholder="manda um recado" maxlength="200" style="flex:1" autocomplete="off">
-              <button class="lcdbtn" id="btnSend" style="width:auto;padding:8px 12px;font-size:10px;margin:0">ok</button>
+            <div class="tabpanel hide" id="panel-chat">
+              <div id="chatlog"></div>
+              <div style="display:flex;gap:6px">
+                <input type="text" id="chatIn" placeholder="manda um recado" maxlength="200" style="flex:1" autocomplete="off">
+                <button class="lcdbtn" id="btnSend" style="width:auto;padding:8px 12px;font-size:10px;margin:0">ok</button>
+              </div>
             </div>
           </div>
-
-          <details style="margin-top:10px">
-            <summary style="cursor:pointer;font-size:13px;color:var(--mid)">diagnóstico</summary>
-            <div style="font-size:13px;color:var(--mid);display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
-              <span>papel <b id="roRole" style="color:var(--ink)">—</b></span>
-              <span>ligações <b id="roPeers" style="color:var(--ink)">0</b></span>
-              <span>ida-e-volta <b id="roRtt" style="color:var(--ink)">—</b></span>
-            </div>
-          </details>
-          <p class="err" id="appErr"></p>
         </div>
       </section>
 
     </div>
   </div>
-
-  <div class="controls">
-    <div class="dpad" id="dpad">
-      <div class="hub"></div>
-      <button class="dbtn up" data-dir="up">▲</button>
-      <button class="dbtn down" data-dir="down">▼</button>
-      <button class="dbtn left" data-dir="left">◀</button>
-      <button class="dbtn right" data-dir="right">▶</button>
-    </div>
-    <div class="actionbtns">
-      <button class="abtn" id="btnLeaveRoom" title="Sair da sala">✕</button>
-      <span class="abtnlabel">sair</span>
-    </div>
-  </div>
-  <div class="speaker"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 </div>
 
 <div class="legend">
@@ -298,7 +279,7 @@ const SITE_URL=location.origin+location.pathname;
 let role=null, myName='', hostName='';
 const peers=new Map();
 let hostPeer=null, guestPeer=null, guestConn=null, roomCode=null;
-let appOpen=false, unreadChat=0, toastT=null;
+let appOpen=false, unreadChat=0, toastT=null, drawerOpen=false;
 let reconnecting=false, reconnectAttempts=0, reconnectTimer=null, hostReconnectAttempts=0;
 let lastPongAt=0, pingLoopActive=false, myRtt=null, lastHostPingAt=0;
 
@@ -336,8 +317,11 @@ function log(text,who){
   else d.textContent=text;
   const box=$('#chatlog'); box.appendChild(d); box.scrollTop=box.scrollHeight;
   const activeTab=document.querySelector('.tab.active');
-  if(appOpen&&activeTab&&activeTab.dataset.tab!=='chat'){
-    unreadChat++; $('#tabChatBadge').textContent='('+unreadChat+')';
+  const chatIsOpenAndVisible = drawerOpen && activeTab && activeTab.dataset.tab==='chat';
+  if(appOpen&&!chatIsOpenAndVisible){
+    unreadChat++;
+    $('#tabChatBadge').textContent='•';
+    $('#tabChatBadgeText').textContent='('+unreadChat+')';
   }
 }
 function renderPeers(){
@@ -380,12 +364,29 @@ document.querySelectorAll('.segTab').forEach(btn=>{
   }catch(_){}
 })();
 
-/* ---------- abas da sala ---------- */
+/* ---------- gaveta (sala/papo) e abas dentro dela ---------- */
+function openDrawer(){
+  drawerOpen=true;
+  $('#drawer').classList.remove('hide');
+  const activeTab=document.querySelector('.tab.active');
+  if(activeTab&&activeTab.dataset.tab==='chat'){
+    unreadChat=0; $('#tabChatBadge').textContent=''; $('#tabChatBadgeText').textContent='';
+    $('#chatlog').scrollTop=$('#chatlog').scrollHeight;
+  }
+}
+function closeDrawer(){ drawerOpen=false; $('#drawer').classList.add('hide'); }
+$('#btnDrawerOpen').addEventListener('click',openDrawer);
+$('#btnDrawerClose').addEventListener('click',closeDrawer);
+
 document.querySelectorAll('.tab').forEach(btn=>{
   btn.addEventListener('click',()=>{
     document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b===btn));
     document.querySelectorAll('.tabpanel').forEach(p=>p.classList.toggle('hide',p.id!=='panel-'+btn.dataset.tab));
-    if(btn.dataset.tab==='chat'){ unreadChat=0; $('#tabChatBadge').textContent=''; $('#chatlog').scrollTop=$('#chatlog').scrollHeight; }
+    $('#drawerTitle').textContent=btn.dataset.tab==='chat'?'papo':'sala';
+    if(btn.dataset.tab==='chat'){
+      unreadChat=0; $('#tabChatBadge').textContent=''; $('#tabChatBadgeText').textContent='';
+      $('#chatlog').scrollTop=$('#chatlog').scrollHeight;
+    }
   });
 });
 
@@ -638,6 +639,7 @@ function leaveRoom(){
   game=null; localGame=null;
   $('#app').classList.add('hide'); $('#setup').classList.remove('hide');
   $('#codeIn').value=''; $('#chatlog').innerHTML='';
+  closeDrawer(); unreadChat=0; $('#tabChatBadge').textContent=''; $('#tabChatBadgeText').textContent='';
   document.querySelector('.segTab[data-seg="criar"]').click();
   setStatus('fora do ar',false);
 }
@@ -792,7 +794,7 @@ function endGame(winnerName){
   broadcastGame();
 }
 
-/* ---------- entrada: d-pad, teclado, deslize ---------- */
+/* ---------- entrada: teclado e arrastar o dedo na tela ---------- */
 function setMyDir(dir){
   if(role==='host'){
     if(game&&game.snakes['host']) game.snakes['host'].pendingDir=dir;
@@ -800,22 +802,26 @@ function setMyDir(dir){
     send(guestConn,{t:'input',dir});
   }
 }
-document.querySelectorAll('.dbtn').forEach(b=>{
-  b.addEventListener('click',()=>setMyDir(b.dataset.dir));
-});
 document.addEventListener('keydown',e=>{
-  if(!appOpen) return;
+  if(!appOpen||drawerOpen) return;
   const map={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',w:'up',s:'down',a:'left',d:'right'};
   if(map[e.key]){ setMyDir(map[e.key]); e.preventDefault(); }
 });
 (function swipe(){
+  // Arrastar o dedo em qualquer lugar da tela vira a cobra — sem botão
+  // nenhum. Só não conta quando a gaveta (sala/papo) está aberta, pra não
+  // atrapalhar rolar a conversa ou tocar num campo.
   let sx=0, sy=0, active=false;
-  const board=$('#board');
-  board.addEventListener('touchstart',e=>{ const t=e.touches[0]; sx=t.clientX; sy=t.clientY; active=true; },{passive:true});
-  board.addEventListener('touchend',e=>{
+  const zone=$('#screen');
+  zone.addEventListener('touchstart',e=>{
+    if(drawerOpen) return;
+    const t=e.touches[0]; sx=t.clientX; sy=t.clientY; active=true;
+  },{passive:true});
+  zone.addEventListener('touchend',e=>{
     if(!active) return; active=false;
+    if(drawerOpen) return;
     const t=e.changedTouches[0]; const dx=t.clientX-sx, dy=t.clientY-sy;
-    if(Math.abs(dx)<24&&Math.abs(dy)<24) return;
+    if(Math.abs(dx)<20&&Math.abs(dy)<20) return;
     if(Math.abs(dx)>Math.abs(dy)) setMyDir(dx>0?'right':'left');
     else setMyDir(dy>0?'down':'up');
   },{passive:true});
