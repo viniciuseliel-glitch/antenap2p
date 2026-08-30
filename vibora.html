@@ -106,7 +106,7 @@ input[type=text]::placeholder{color:var(--mid)}
 
 /* quadro do jogo */
 .boardwrap{flex:1;display:flex;align-items:center;justify-content:center;padding:8px;min-height:0;position:relative}
-#board{display:block;image-rendering:pixelated}
+#board{display:block;image-rendering:pixelated;border:2px solid var(--ink);border-radius:2px}
 
 .overlay{position:absolute;inset:0;background:rgba(196,206,133,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;gap:10px}
 .overlay .big{font-family:"Press Start 2P";font-size:20px;line-height:1.5}
@@ -257,7 +257,7 @@ ul.peers li:last-child{border-bottom:none}
 
 <div class="legend">
   Cada partida roda direto entre os aparelhos, sem servidor — quem manda a sala é o <b>relógio do jogo</b>; o resto só desenha o que chega.
-  <br><span style="opacity:.6">build v2</span>
+  <br><span style="opacity:.6">build v3</span>
 </div>
 
 <div id="toast"></div>
@@ -887,9 +887,14 @@ function draw(){
   ctx.clearRect(0,0,cw,ch);
   if(!g) return;
   const cellW=cw/g.gridW, cellH=ch/g.gridH;
-  ctx.strokeStyle='rgba(53,64,26,.12)'; ctx.lineWidth=1;
+  ctx.strokeStyle='rgba(53,64,26,.22)'; ctx.lineWidth=1;
   for(let x=1;x<g.gridW;x++){ ctx.beginPath(); ctx.moveTo(x*cellW,0); ctx.lineTo(x*cellW,ch); ctx.stroke(); }
   for(let y=1;y<g.gridH;y++){ ctx.beginPath(); ctx.moveTo(0,y*cellH); ctx.lineTo(cw,y*cellH); ctx.stroke(); }
+  // borda de verdade do tabuleiro — é literalmente onde bater mata a cobra,
+  // então precisa ser óbvia, não uma linha de grade qualquer.
+  const bw=Math.max(3,Math.round(cw*0.014));
+  ctx.strokeStyle='#35401A'; ctx.lineWidth=bw;
+  ctx.strokeRect(bw/2,bw/2,cw-bw,ch-bw);
   if(g.food){
     const pulse=0.72+0.28*Math.sin(now()/180);
     ctx.fillStyle='#E14B3D';
