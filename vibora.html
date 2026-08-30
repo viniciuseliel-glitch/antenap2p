@@ -190,6 +190,10 @@ ul.peers li:last-child{border-bottom:none}
           <span class="code pixel" id="codeChipTxt">------</span>
           <div class="spacer"></div>
           <span class="stat" id="statusTxt">sala aberta</span>
+          <button class="topicon hide" id="btnFullscreen" title="Tela cheia">
+            <svg id="fsIconExpand" width="14" height="14" viewBox="0 0 16 16"><path d="M1 5V1h4M11 1h4v4M15 11v4h-4M5 15H1v-4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
+            <svg id="fsIconCompress" class="hide" width="14" height="14" viewBox="0 0 16 16"><path d="M5 1v4H1M11 1v4h4M15 11h-4v4M1 11h4v4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
+          </button>
           <button class="topicon" id="btnDrawerOpen" title="Sala e papo">☰<span class="dot" id="tabChatBadge"></span></button>
           <button class="topicon" id="btnLeaveRoom" title="Sair da sala">✕</button>
         </div>
@@ -257,7 +261,7 @@ ul.peers li:last-child{border-bottom:none}
 
 <div class="legend">
   Cada partida roda direto entre os aparelhos, sem servidor — quem manda a sala é o <b>relógio do jogo</b>; o resto só desenha o que chega.
-  <br><span style="opacity:.6">build v3</span>
+  <br><span style="opacity:.6">build v4</span>
 </div>
 
 <div id="toast"></div>
@@ -660,6 +664,31 @@ $('#codeIn').addEventListener('input',e=>{ e.target.value=e.target.value.replace
 $('#codeIn').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#btnJoin').click(); });
 $('#btnLeaveRoom').addEventListener('click',()=>{ if(appOpen) leaveRoom(); });
 
+/* ---------- tela cheia ---------- */
+function fsSupported(){ return !!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen); }
+function isFullscreen(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+function updateFsIcon(){
+  const on=isFullscreen();
+  $('#fsIconExpand').classList.toggle('hide',on);
+  $('#fsIconCompress').classList.toggle('hide',!on);
+}
+function toggleFullscreen(){
+  if(isFullscreen()){
+    const exit=document.exitFullscreen||document.webkitExitFullscreen;
+    if(exit) exit.call(document).catch(()=>{});
+  }else{
+    const el=document.documentElement;
+    const req=el.requestFullscreen||el.webkitRequestFullscreen;
+    if(req){ const r=req.call(el); if(r&&r.catch) r.catch(()=>{}); }
+  }
+}
+if(fsSupported()){
+  $('#btnFullscreen').classList.remove('hide');
+  $('#btnFullscreen').addEventListener('click',toggleFullscreen);
+  document.addEventListener('fullscreenchange',updateFsIcon);
+  document.addEventListener('webkitfullscreenchange',updateFsIcon);
+}
+
 function sendChat(){
   const v=$('#chatIn').value.trim(); if(!v) return;
   $('#chatIn').value=''; log(v,myName);
@@ -673,6 +702,7 @@ $('#chatIn').addEventListener('keydown',e=>{ if(e.key==='Enter') sendChat(); });
    Jogo: o anfitrião simula, todo mundo desenha.
    ============================================================ */
 const GRID_W=18, GRID_H=18, TICK_MS=140;
+const BIG_FOOD_CHANCE=0.17, BIG_FOOD_GROWTH=5;
 const PLAYER_COLORS=['#35401A','#8B3A2B','#2B5A6B','#6B3A7A','#7A5A1F','#3A6B4A','#6B2B4A','#4A4A6B'];
 let game=null;        // estado de verdade, só o anfitrião mantém
 let localGame=null;   // última cópia recebida, usado por quem não é anfitrião
@@ -719,6 +749,8 @@ function spawnFood(){
   let pos,tries=0;
   do{ pos={x:Math.floor(Math.random()*game.gridW),y:Math.floor(Math.random()*game.gridH)}; tries++; }
   while(occ.has(pos.x+','+pos.y)&&tries<300);
+  // maçã grande de vez em quando — rara o bastante pra ser um evento, não a regra
+  pos.big = Math.random() < BIG_FOOD_CHANCE;
   game.food=pos;
 }
 function broadcastGame(){ if(role==='host') broadcast({t:'game',game}); renderGameChrome(); }
@@ -779,7 +811,14 @@ function gameTick(){
     if(!s.alive) return;
     const h=newHeads[id];
     s.segments.unshift(h);
-    if(game.food&&h.x===game.food.x&&h.y===game.food.y){ s.score++; spawnFood(); }
+    if(game.food&&h.x===game.food.x&&h.y===game.food.y){
+      const growBy=game.food.big?BIG_FOOD_GROWTH:1;
+      s.score+=growBy;
+      // a cabeça já entrou (unshift acima); cada crescimento extra além do
+      // normal é o rabo duplicado, pra crescer de uma vez, não aos poucos.
+      for(let k=0;k<growBy-1;k++) s.segments.push(s.segments[s.segments.length-1]);
+      spawnFood();
+    }
     else s.segments.pop();
   });
   const stillAlive=Object.entries(game.snakes).filter(([id,s])=>s.alive);
@@ -897,9 +936,18 @@ function draw(){
   ctx.strokeRect(bw/2,bw/2,cw-bw,ch-bw);
   if(g.food){
     const pulse=0.72+0.28*Math.sin(now()/180);
-    ctx.fillStyle='#E14B3D';
-    const pad=cellW*0.5*(1-pulse*0.6);
-    ctx.fillRect(g.food.x*cellW+pad, g.food.y*cellH+pad, cellW-2*pad, cellH-2*pad);
+    const cx=g.food.x*cellW+cellW/2, cy=g.food.y*cellH+cellH/2;
+    if(g.food.big){
+      const r=cellW*(0.95+0.12*pulse);
+      ctx.fillStyle='#D98A1F';
+      ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#35401A'; ctx.lineWidth=Math.max(1.5,cellW*0.09);
+      ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
+    }else{
+      ctx.fillStyle='#E14B3D';
+      const pad=cellW*0.5*(1-pulse*0.6);
+      ctx.fillRect(g.food.x*cellW+pad, g.food.y*cellH+pad, cellW-2*pad, cellH-2*pad);
+    }
   }
   Object.values(g.snakes).forEach(s=>{
     ctx.fillStyle=s.alive?s.color:'rgba(53,64,26,.25)';
